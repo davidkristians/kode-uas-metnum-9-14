@@ -1,103 +1,110 @@
+import numpy as np
+import pandas as pd
 import math
 
-# --- 1. Fungsi Perhitungan Slope (a1) ---
-def hitung_slope(x, y):
-    n = len(x)
-    sum_x = sum(x)
-    sum_y = sum(y)
-    sum_xy = sum([xi * yi for xi, yi in zip(x, y)])
-    sum_x2 = sum([xi ** 2 for xi in x])
+# =========================================================================
+# 1. INPUT DATA & MODEL (REGRESI LINEAR SEDERHANA: y = a0 + a1*x)
+# =========================================================================
+# Data dari Pertemuan 9.xlsx - Linear.csv
+x_i = np.array([1, 2, 3, 4, 5, 6, 7])
+y_i = np.array([0.5, 2.5, 2.0, 4.0, 3.5, 6.0, 5.5])
+n = len(y_i)
 
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    penyebut = (n * sum_x2) - (sum_x ** 2)
-    
-    return pembilang / penyebut
+# --- DEFINISI FUNGSI BASIS (Matriks [Z]) ---
+# z0 = 1 (untuk koefisien a0)
+# z1 = x (untuk koefisien a1)
+z_0 = np.ones_like(x_i)
+z_1 = x_i
+Z = np.stack([z_0, z_1], axis=1)  # Matriks Z berukuran n x 2
 
-# --- 2. Fungsi Perhitungan Intercept (a0) ---
-def hitung_intercept(x, y, a1):
-    n = len(x)
-    mean_x = sum(x) / n
-    mean_y = sum(y) / n
-    
-    # Rumus: a0 = y_rata2 - (a1 * x_rata2)
-    return mean_y - (a1 * mean_x)
+# Vektor Y
+Y = y_i.reshape(-1, 1)
 
-# --- 3. Fungsi Prediksi (y = a0 + a1x) ---
-# Fungsi bantu untuk mendapatkan nilai y prediksi (y topi)
-def prediksi_y(x_val, a0, a1):
-    return a0 + (a1 * x_val)
+# =========================================================================
+# 2. PERHITUNGAN KOEFISIEN MENGGUNAKAN LEAST SQUARES (G-LS)
+#    Rumus: {A} = ([Z]T [Z])^-1 * [Z]T {Y}
+# =========================================================================
+Z_T_Z = Z.T @ Z
+Z_T_Y = Z.T @ Y
 
-# --- 4. Fungsi Standard Deviation (Sy) ---
-def hitung_std_dev(y):
-    n = len(y)
-    mean_y = sum(y) / n
-    
-    # Rumus: sqrt( sum(y - y_rata)^2 / (n-1) )
-    sum_sq_diff = sum([(yi - mean_y)**2 for yi in y])
-    
-    return math.sqrt(sum_sq_diff / (n - 1))
+# Menyelesaikan sistem persamaan linear
+try:
+    # Menggunakan np.linalg.solve() lebih disarankan daripada invers, 
+    # tetapi invers juga benar untuk kasus matriks kecil ini.
+    # Kita tetap menggunakan invers agar sesuai dengan langkah G-LS.
+    Z_T_Z_inv = np.linalg.inv(Z_T_Z)
+    A = Z_T_Z_inv @ Z_T_Y
+except np.linalg.LinAlgError:
+    print("Error: Matriks Singular. Regresi tidak dapat diselesaikan.")
+    A = np.zeros((Z.shape[1], 1))
 
-# --- 5. Fungsi Standard Error of Estimation (Sy/x) ---
-def hitung_std_error(x, y, a0, a1):
-    n = len(x)
-    
-    # Hitung error kuadrat: sum(y_asli - y_prediksi)^2
-    sum_error_sq = 0
-    for i in range(n):
-        y_pred = prediksi_y(x[i], a0, a1)
-        residual = y[i] - y_pred
-        sum_error_sq += residual ** 2
-        
-    # Rumus: sqrt( sum_error_sq / (n-2) )
-    return math.sqrt(sum_error_sq / (n - 2))
+# Ambil hasil koefisien [a0, a1, ...]
+a = A.flatten()
+a_0 = a[0]
+a_1 = a[1]
 
-# --- 6. Fungsi Korelasi (r) dan Determinasi (r^2) ---
-def hitung_korelasi(x, y):
-    n = len(x)
-    sum_x = sum(x)
-    sum_y = sum(y)
-    sum_xy = sum([xi * yi for xi, yi in zip(x, y)])
-    sum_x2 = sum([xi ** 2 for xi in x])
-    sum_y2 = sum([yi ** 2 for yi in y])
+# =========================================================================
+# 3. ANALISIS KUALITAS REGRESI (ERROR)
+# =========================================================================
+# Nilai prediksi model: y_model = a0*z0 + a1*z1 + ...
+y_model = Z @ A
 
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    
-    term_x = (n * sum_x2) - (sum_x ** 2)
-    term_y = (n * sum_y2) - (sum_y ** 2)
-    penyebut = math.sqrt(term_x * term_y)
-    
-    r = pembilang / penyebut
-    r_sq = r ** 2
-    return r, r_sq
+# Rata-rata y
+y_bar = np.mean(y_i)
+m_vars = Z.shape[1] # Jumlah koefisien (a0, a1, ...)
 
-# ==========================================
-# MAIN PROGRAM (Eksekusi)
-# ==========================================
+# St (Total Sum of Squares)
+St = np.sum((y_i - y_bar)**2)
 
-# Data Input
-data_x = [1, 2, 3, 4, 5, 6, 7]
-data_y = [0.5, 2.5, 2, 4, 3.5, 6, 5.5]
+# Sr (Sum of Squares of Residuals)
+Sr = np.sum((y_i - y_model.flatten())**2)
 
-print("=== HASIL PERHITUNGAN MODULAR ===")
+# Koefisien Determinasi (r^2)
+r2 = (St - Sr) / St
+r = np.sqrt(r2)
 
-# 1. Hitung Slope
-a1 = hitung_slope(data_x, data_y)
-print(f"1. Slope (a1)      : {a1:.7f}")
+# Standar Deviasi (Sy)
+Sy = np.sqrt(St / (n - 1))
 
-# 2. Hitung Intercept (butuh a1)
-a0 = hitung_intercept(data_x, data_y, a1)
-print(f"2. Intercept (a0)  : {a0:.7f}")
-print(f"   -> Persamaan    : y = {a0:.2f} + {a1:.2f}x")
+# Standar Error Estimasi (Sy/x)
+Sy_x = np.sqrt(Sr / (n - m_vars))
 
-# 3. Hitung Standard Deviation
-sy = hitung_std_dev(data_y)
-print(f"3. Standard Deviasi   : {sy:.5f}")
 
-# 4. Hitung Standard Error (butuh a0 dan a1 untuk prediksi)
-syx = hitung_std_error(data_x, data_y, a0, a1)
-print(f"4. Standard Error (Sy/x): {syx:.5f}")
+# =========================================================================
+# 4. HASIL OUTPUT & TABEL DETAIL
+# =========================================================================
+print("-" * 65)
+print("HASIL REGRESI LINEAR (y = a0 + a1*x)")
+print("-" * 65)
 
-# 5. Hitung Korelasi
-r, r2 = hitung_korelasi(data_x, data_y)
-print(f"5. Koefisien Korelasi (r)    : {r:.5f}")
-print(f"6. Koefisien Determinasi (r²): {r2:.5f} ({r2*100:.2f}%)")
+# Tampilkan Koefisien
+print(f"Koefisien a0 (Intersep) = {a_0:.7f}")
+print(f"Koefisien a1 (Slope)    = {a_1:.7f}")
+print(f"\nPersamaan Regresi: y = {a_0:.4f} + {a_1:.4f} * x")
+
+print("-" * 65)
+print("ANALISIS KUALITAS REGRESI:")
+print(f"Sy (Standard Deviation)     = {Sy:.7f}")
+print(f"Sy/x (Std Error Estimasi)   = {Sy_x:.7f}")
+print(f"Sr (Sum of Residuals)       = {Sr:.7f}")
+print(f"r^2 (Koef. Determinasi)     = {r2:.7f} ({r2*100:.2f}%)")
+print(f"r (Koef. Korelasi)          = {r:.7f}")
+
+print("-" * 65)
+# Membuat Tabel Menggunakan Pandas
+df = pd.DataFrame({
+    'xi': x_i,
+    'yi': y_i,
+    'xi.yi': x_i * y_i,
+    'xi^2': x_i ** 2,
+    'y_pred': y_model.flatten(),
+    '(yi-ybar)^2': (y_i - y_bar)**2,
+    '(yi-model)^2': (y_i - y_model.flatten())**2
+})
+sum_row = df.sum(numeric_only=True)
+sum_row.name = 'Σ'
+df_final = pd.concat([df, sum_row.to_frame().T])
+print("TABEL DETAIL PERHITUNGAN:")
+# Membulatkan hasil untuk tampilan
+print(df_final.round(7).to_string())
+print("-" * 65)

@@ -1,115 +1,136 @@
+import numpy as np
+import pandas as pd
 import math
 
-# --- 1. Fungsi Transformasi Logaritma (Ln) ---
-def transform_to_log(y_data):
-    # Mengubah semua y menjadi ln(y)
-    return [math.log(yi) for yi in y_data]
+# =========================================================================
+# 1. INPUT DATA & MODEL (EKSPONENSIAL: y = alpha * e^(beta*x))
+# =========================================================================
+# Data Contoh (Gunakan data dari Pertemuan 9.xlsx - Exponential.csv Anda)
+# x_i = np.array([0, 1, 2, 3, 4, 5]) 
+# y_i = np.array([10.5, 12.0, 14.5, 17.0, 20.0, 25.0])
+x_i = np.array([2, 3, 4, 5, 6])
+y_i = np.array([2.47, 3.18, 4.08, 5.24, 6.72])
+n = len(y_i)
 
-# --- 2. Fungsi Slope (a1 / beta1) pada Data Log ---
-def hitung_slope(x, y_log):
-    n = len(x)
-    sum_x = sum(x)
-    sum_y = sum(y_log)
-    sum_xy = sum([xi * yi for xi, yi in zip(x, y_log)])
-    sum_x2 = sum([xi ** 2 for xi in x])
+# --- TAHAP LINEARISASI (Transformasi y menjadi Y) ---
+# Model Linear: Y = A0 + A1 * x, di mana Y = ln(y)
+try:
+    Y_i = np.log(y_i) # Menggunakan Logaritma Natural (ln)
+except:
+    print("Error: Data y harus positif untuk logaritma.")
+    exit()
 
-    # Rumus Linear Regression biasa, tapi menggunakan y_log
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    penyebut = (n * sum_x2) - (sum_x ** 2)
-    
-    return pembilang / penyebut
+# --- DEFINISI FUNGSI BASIS (Matriks [Z]) ---
+z_0 = np.ones_like(x_i)
+z_1 = x_i
+Z = np.stack([z_0, z_1], axis=1)  # Matriks Z (n x 2)
 
-# --- 3. Fungsi Intercept (a0) pada Data Log ---
-def hitung_intercept_log(x, y_log, slope):
-    n = len(x)
-    mean_x = sum(x) / n
-    mean_y = sum(y_log) / n
-    
-    # a0 = ln(y)_rata2 - (slope * x_rata2)
-    return mean_y - (slope * mean_x)
+# Vektor Y (sudah ditransformasi)
+Y_vec = Y_i.reshape(-1, 1)
 
-# --- 4. Fungsi Prediksi Eksponensial ---
-def prediksi_eksponensial(x_val, alpha, beta):
-    # Rumus: y = alpha * e^(beta * x)
-    return alpha * math.exp(beta * x_val)
+# =========================================================================
+# 2. PERHITUNGAN KOEFISIEN LINEAR MENGGUNAKAN LEAST SQUARES (G-LS)
+# =========================================================================
+Z_T_Z = Z.T @ Z
+Z_T_Y = Z.T @ Y_vec
 
-# --- 5. Fungsi Standard Deviation (Sy) - Data Asli ---
-def hitung_std_dev(y):
-    n = len(y)
-    mean_y = sum(y) / n
-    sum_sq_diff = sum([(yi - mean_y)**2 for yi in y])
-    return math.sqrt(sum_sq_diff / (n - 1))
+try:
+    Z_T_Z_inv = np.linalg.inv(Z_T_Z)
+    A = Z_T_Z_inv @ Z_T_Y
+except np.linalg.LinAlgError:
+    print("Error: Matriks Singular.")
+    exit()
 
-# --- 6. Fungsi Standard Error of Estimation (Sy/x) ---
-def hitung_std_error_exp(x, y, alpha, beta):
-    n = len(x)
-    sum_error_sq = 0
-    
-    # Menghitung residual pada skala ASLI (bukan log)
-    # Sesuai tabel bawah di gambar: (yi - y_pred)^2
-    for i in range(n):
-        y_pred = prediksi_eksponensial(x[i], alpha, beta)
-        residual = y[i] - y_pred
-        sum_error_sq += residual ** 2
-        
-    # Rumus: sqrt( sum_error_sq / (n-2) )
-    return math.sqrt(sum_error_sq / (n - 2))
+# Ambil hasil koefisien Linear [A0, A1]
+A_linear = A.flatten()
+A0 = A_linear[0]
+A1 = A_linear[1]
 
-# --- 7. Fungsi Korelasi (r) pada Data Terlinearisasi ---
-def hitung_korelasi_log(x, y_log):
-    n = len(x)
-    sum_x = sum(x)
-    sum_y = sum(y_log)
-    sum_xy = sum([xi * yi for xi, yi in zip(x, y_log)])
-    sum_x2 = sum([xi ** 2 for xi in x])
-    sum_y2 = sum([yi ** 2 for yi in y_log])
+# =========================================================================
+# 3. TRANSFORMASI KOEFISIEN KEMBALI KE BENTUK NON-LINEAR
+# =========================================================================
+beta = A1 
+alpha = np.exp(A0) 
 
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    term_x = (n * sum_x2) - (sum_x ** 2)
-    term_y = (n * sum_y2) - (sum_y ** 2)
-    
-    r = pembilang / math.sqrt(term_x * term_y)
-    return r, r**2
+# Nilai prediksi model pada y ASLI: y_model = alpha * e^(beta*x)
+y_model = alpha * np.exp(beta * x_i)
 
-# ==========================================
-# MAIN PROGRAM
-# ==========================================
+# =========================================================================
+# 4. ANALISIS KUALITAS REGRESI LENGKAP
+# =========================================================================
+m_vars = Z.shape[1] 
 
-# 1. INPUT DATA DARI GAMBAR
-x = [2, 3, 4, 5, 6]
-y = [2.47, 3.18, 4.08, 5.24, 6.72]
+# -------------------------------------------------------------------------
+# A. METRIK BERDASARKAN DATA ASLI (y_i): Mengukur kecocokan MODEL NON-LINEAR
+# -------------------------------------------------------------------------
+y_bar = np.mean(y_i)
+St_y = np.sum((y_i - y_bar)**2) # St (Total Sum of Squares pada y ASLI)
+Sr_y = np.sum((y_i - y_model)**2) # Sr (Sum of Squares of Residuals pada y ASLI)
 
-print("=== HASIL EXPONENTIAL REGRESSION ===")
+# Koefisien Determinasi ASLI (r^2)
+r2_asli = (St_y - Sr_y) / St_y
+r_asli = np.sqrt(r2_asli)
 
-# 2. TRANSFORMASI DATA (y -> ln y)
-y_log = transform_to_log(y)
-# Tampilkan Ln(y) untuk verifikasi
-# print(f"Ln(y): {[round(val, 4) for val in y_log]}")
+# Standar Error Estimasi ASLI (Sy/x)
+Sy_x_asli = np.sqrt(Sr_y / (n - m_vars))
 
-# 3. HITUNG SLOPE (Beta 1)
-beta1 = hitung_slope(x, y_log)
-print(f"1. Slope (Beta1/a1)  : {beta1:.6f}")
+# Standar Deviasi ASLI (Sy)
+Sy_asli = np.sqrt(St_y / (n - 1))
 
-# 4. HITUNG INTERCEPT LOG (Ln Alpha 1)
-ln_alpha1 = hitung_intercept_log(x, y_log, beta1)
-print(f"2. Ln(Alpha1) / a0   : {ln_alpha1:.6f}")
+# -------------------------------------------------------------------------
+# B. METRIK BERDASARKAN DATA TRANSFORMASI (Y_i): Mengukur kecocokan LINEAR
+# -------------------------------------------------------------------------
+Y_bar = np.mean(Y_i)
+Y_model = A0 + A1 * x_i # Nilai Y prediksi (linear)
 
-# 5. KONVERSI KE ALPHA ASLI
-# alpha = e^(ln_alpha)
-alpha1 = math.exp(ln_alpha1)
-print(f"3. Alpha1 (Exp a0)   : {alpha1:.6f}")
-print(f"   Persamaan akhir   : y = {alpha1:.1f} * e^({beta1:.2f}x)")
+St_Y = np.sum((Y_i - Y_bar)**2) # St (pada Y)
+Sr_Y = np.sum((Y_i - Y_model)**2) # Sr (pada Y)
 
-# 6. HITUNG STANDARD DEVIATION (Data Asli)
-sy = hitung_std_dev(y)
-print(f"4. Standard Dev (Sy)          : {sy:.6f}")
+# Koefisien Korelasi LINEAR (r)
+r2_linear = (St_Y - Sr_Y) / St_Y
+r_linear = np.sqrt(r2_linear)
 
-# 7. HITUNG STANDARD ERROR (Sy/x)
-# Error dihitung berdasarkan selisih y asli dengan y prediksi eksponensial
-syx = hitung_std_error_exp(x, y, alpha1, beta1)
-print(f"5. Standard Error (Sy/x)      : {syx:.6f}")
+# Standar Deviasi LINEAR (Sy)
+Sy_linear = np.sqrt(St_Y / (n - 1))
 
-# 8. HITUNG KORELASI (Linearized Data)
-r, r2 = hitung_korelasi_log(x, y_log)
-print(f"6. Koefisien Korelasi (r)     : {r:.6f}")
-print(f"7. Koefisien Determinasi (r²) : {r2:.6f} ({r2*100:.5f}%)")
+
+# =========================================================================
+# 5. HASIL OUTPUT & TABEL DETAIL
+# =========================================================================
+print("-" * 75)
+print("HASIL REGRESI EKSPONENSIAL (y = alpha * e^(beta*x))")
+print("-" * 75)
+
+print(f"Koefisien Linear: A0 = {A0:.7f}, A1 = {A1:.7f}")
+print(f"Koefisien Non-Linear: alpha = {alpha:.7f}, beta = {beta:.7f}")
+print(f"\nPersamaan Regresi Final: y = {alpha:.4f} * e^({beta:.4f} * x)")
+
+print("-" * 75)
+print("METRIK KUALITAS MODEL (Dihitung pada data ASLI 'y'):")
+print(f"Sy (Standard Deviation Asli)    = {Sy_asli:.7f}")
+print(f"Sy/x (Std Error Estimasi Asli)  = {Sy_x_asli:.7f}")
+print(f"r^2 (Koef. Determinasi Asli)    = {r2_asli:.7f} ({r2_asli*100:.2f}%)")
+print(f"r (Koef. Korelasi Asli)         = {r_asli:.7f}")
+
+print("\nMETRIK KUALITAS LINEARISASI (Dihitung pada data TRANSFORMASI 'Y'):")
+print(f"Sy (Standard Deviation Transformasi) = {Sy_linear:.7f}")
+print(f"r (Koef. Korelasi Transformasi)      = {r_linear:.7f}")
+print("-" * 75)
+
+# Membuat Tabel Menggunakan Pandas
+df = pd.DataFrame({
+    'xi': x_i,
+    'yi_asli': y_i,
+    'Yi=ln(yi)': Y_i, 
+    'Y_pred_linear': Y_model,
+    'y_pred_model': y_model,
+    '(yi-ybar)^2': (y_i - y_bar)**2,
+    '(yi-model)^2': (y_i - y_model)**2
+})
+sum_row = df.sum(numeric_only=True)
+sum_row.name = 'Σ'
+df_final = pd.concat([df, sum_row.to_frame().T])
+
+print("TABEL DETAIL PERHITUNGAN:")
+print(df_final.round(7).to_string())
+print("-" * 75)

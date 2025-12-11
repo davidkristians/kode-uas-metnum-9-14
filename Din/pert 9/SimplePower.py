@@ -1,114 +1,121 @@
+import numpy as np
+import pandas as pd
 import math
 
-# --- 1. Fungsi Transformasi Logaritma Basis 10 ---
-def transform_to_log10(data):
-    # Mengubah data menjadi log10(data)
-    return [math.log10(val) for val in data]
+# Pilihan logaritma: Kita gunakan np.log10 (log basis 10) karena umum di Power Model.
+LOG_BASE = np.log10 
 
-# --- 2. Fungsi Hitung Slope (Beta) ---
-def hitung_slope(x_log, y_log):
-    n = len(x_log)
-    sum_x = sum(x_log)
-    sum_y = sum(y_log)
-    sum_xy = sum([xi * yi for xi, yi in zip(x_log, y_log)])
-    sum_x2 = sum([xi ** 2 for xi in x_log])
+# =========================================================================
+# 1. INPUT DATA & MODEL (SIMPLE POWER: y = alpha * x^beta)
+# =========================================================================
+# Data Contoh (Gunakan data dari Pertemuan 9.xlsx - Simple Power.csv Anda)
+# x_i = np.array([1, 2, 3, 4, 5, 6, 7]) 
+# y_i = np.array([0.5, 2.5, 2.0, 4.0, 3.5, 6.0, 5.5]) # Data Y asli (contoh)
+x_i = np.array([1, 2, 3, 4, 5])
+y_i = np.array([0.5, 1.7, 3.4, 5.7, 8.4])
+n = len(y_i)
 
-    # Rumus Regresi Linear pada data Log
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    penyebut = (n * sum_x2) - (sum_x ** 2)
-    
-    return pembilang / penyebut
+# --- TAHAP LINEARISASI (Transformasi x dan y) ---
+# X = log(x)  ;  Y = log(y)
+# Model Linear: Y = A0 + A1 * X
+try:
+    X_i = LOG_BASE(x_i) 
+    Y_i = LOG_BASE(y_i) 
+except Exception as e:
+    print(f"Error: Data x dan y harus positif untuk logaritma. ({e})")
+    exit()
 
-# --- 3. Fungsi Hitung Intercept (Log Alpha) ---
-def hitung_intercept_log(x_log, y_log, slope):
-    n = len(x_log)
-    mean_x = sum(x_log) / n
-    mean_y = sum(y_log) / n
-    
-    # a0 = y_bar - slope * x_bar
-    return mean_y - (slope * mean_x)
+# --- DEFINISI FUNGSI BASIS (Matriks [Z]) ---
+# z0 = 1 (untuk koefisien A0)
+# z1 = X (untuk koefisien A1)
+z_0 = np.ones_like(X_i)
+z_1 = X_i
+Z = np.stack([z_0, z_1], axis=1)  # Matriks Z (n x 2)
 
-# --- 4. Fungsi Prediksi Power Model ---
-def prediksi_power(x_val, alpha, beta):
-    # Rumus: y = alpha * x^beta
-    return alpha * (x_val ** beta)
+# Vektor Y (sudah ditransformasi)
+Y_vec = Y_i.reshape(-1, 1)
 
-# --- 5. Fungsi Standard Deviation (Sy) - Data Asli ---
-def hitung_std_dev(y):
-    n = len(y)
-    mean_y = sum(y) / n
-    sum_sq_diff = sum([(yi - mean_y)**2 for yi in y])
-    return math.sqrt(sum_sq_diff / (n - 1))
+# =========================================================================
+# 2. PERHITUNGAN KOEFISIEN LINEAR MENGGUNAKAN LEAST SQUARES (G-LS)
+#    Rumus: {A} = ([Z]T [Z])^-1 * [Z]T {Y_vec}
+# =========================================================================
+Z_T_Z = Z.T @ Z
+Z_T_Y = Z.T @ Y_vec
 
-# --- 6. Fungsi Standard Error of Estimation (Sy/x) ---
-def hitung_std_error_power(x, y, alpha, beta):
-    n = len(x)
-    sum_error_sq = 0
-    
-    # Menghitung residual pada skala ASLI
-    # (yi - y_pred)^2
-    for i in range(n):
-        y_pred = prediksi_power(x[i], alpha, beta)
-        residual = y[i] - y_pred
-        sum_error_sq += residual ** 2
-        
-    # Rumus: sqrt( sum_error_sq / (n-2) )
-    return math.sqrt(sum_error_sq / (n - 2))
+try:
+    A = np.linalg.inv(Z_T_Z) @ Z_T_Y
+except np.linalg.LinAlgError:
+    print("Error: Matriks Singular.")
+    exit()
 
-# --- 7. Fungsi Korelasi (r) pada Data Log-Log ---
-def hitung_korelasi_log(x_log, y_log):
-    n = len(x_log)
-    sum_x = sum(x_log)
-    sum_y = sum(y_log)
-    sum_xy = sum([xi * yi for xi, yi in zip(x_log, y_log)])
-    sum_x2 = sum([xi ** 2 for xi in x_log])
-    sum_y2 = sum([yi ** 2 for yi in y_log])
+# Ambil hasil koefisien Linear [A0, A1]
+A_linear = A.flatten()
+A0 = A_linear[0]
+A1 = A_linear[1]
 
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    term_x = (n * sum_x2) - (sum_x ** 2)
-    term_y = (n * sum_y2) - (sum_y ** 2)
-    
-    r = pembilang / math.sqrt(term_x * term_y)
-    return r, r**2
+# =========================================================================
+# 3. TRANSFORMASI KOEFISIEN KEMBALI KE BENTUK NON-LINEAR
+# =========================================================================
+# Hubungan: A0 = log(alpha)  ;  A1 = beta
+beta = A1 
+alpha = 10**A0 # Jika menggunakan log10, maka alpha = 10^(A0)
 
-# ==========================================
-# MAIN PROGRAM
-# ==========================================
+# Nilai prediksi model pada y ASLI: y_model = alpha * x^beta
+y_model = alpha * (x_i ** beta)
 
-# 1. INPUT DATA DARI GAMBAR
-x = [1, 2, 3, 4, 5]
-y = [0.5, 1.7, 3.4, 5.7, 8.4]
+# =========================================================================
+# 4. ANALISIS KUALITAS REGRESI LENGKAP (Diukur pada data ASLI y_i)
+# =========================================================================
+m_vars = Z.shape[1] 
 
-print("=== HASIL SIMPLE POWER REGRESSION ===")
+# --- METRIK BERDASARKAN DATA ASLI (y_i) ---
+y_bar = np.mean(y_i)
+St_y = np.sum((y_i - y_bar)**2) 
+Sr_y = np.sum((y_i - y_model)**2) 
 
-# 2. TRANSFORMASI DATA (Log-Log)
-x_log = transform_to_log10(x)
-y_log = transform_to_log10(y)
+# Koefisien Determinasi ASLI (r^2)
+r2_asli = (St_y - Sr_y) / St_y
+r_asli = np.sqrt(r2_asli)
 
-# 3. HITUNG SLOPE (Beta / b)
-beta = hitung_slope(x_log, y_log)
-print(f"1. Slope (Beta/a1)     : {beta:.6f}")
+# Standar Error Estimasi ASLI (Sy/x)
+Sy_x_asli = np.sqrt(Sr_y / (n - m_vars))
 
-# 4. HITUNG INTERCEPT LOG (Log Alpha / a0)
-log_alpha = hitung_intercept_log(x_log, y_log, beta)
-print(f"2. Log(Alpha) / a0     : {log_alpha:.6f}")
+# Standar Deviasi ASLI (Sy)
+Sy_asli = np.sqrt(St_y / (n - 1))
 
-# 5. KONVERSI KE ALPHA ASLI
-# Karena pakai log10, maka alpha = 10^log_alpha
-alpha = 10 ** log_alpha
-print(f"3. Alpha (Antilog a0)  : {alpha:.6f}")
-print(f"   Persamaan akhirnya  : y = {alpha:.2f} * x^{beta:.2f}")
+# =========================================================================
+# 5. HASIL OUTPUT & TABEL DETAIL
+# =========================================================================
+print("-" * 75)
+print("HASIL REGRESI SIMPLE POWER (y = alpha * x^beta)")
+print("-" * 75)
 
-# 6. HITUNG STANDARD DEVIATION (Data Asli)
-sy = hitung_std_dev(y)
-print(f"4. Standard Deviasi (Sy)  : {sy:.6f}")
+print(f"Koefisien Linear: A0 = {A0:.7f}, A1 = {A1:.7f}")
+print(f"Koefisien Non-Linear: alpha = {alpha:.7f}, beta = {beta:.7f}")
+print(f"\nPersamaan Regresi Final: y = {alpha:.4f} * x^({beta:.4f})")
 
-# 7. HITUNG STANDARD ERROR (Sy/x)
-# Error dihitung antara Y Asli dengan Y Prediksi Rumus Power
-syx = hitung_std_error_power(x, y, alpha, beta)
-print(f"5. Standard Error (Sy/x)  : {syx:.6f}")
+print("-" * 75)
+print("METRIK KUALITAS MODEL (Dihitung pada data ASLI 'y'):")
+print(f"Sy (Standard Deviation Asli)    = {Sy_asli:.7f}")
+print(f"Sy/x (Std Error Estimasi Asli)  = {Sy_x_asli:.7f}")
+print(f"r^2 (Koef. Determinasi Asli)    = {r2_asli:.7f} ({r2_asli*100:.2f}%)")
+print(f"r (Koef. Korelasi Asli)         = {r_asli:.7f}")
 
-# 8. HITUNG KORELASI (Linearized Data)
-r, r2 = hitung_korelasi_log(x_log, y_log)
-print(f"6. Koefisien Korelasi (r)      : {r:.6f}")
-print(f"7. Koefisien Determinasi (r²)  : {r2:.6f} ({r2*100:.5f}%)")
+print("-" * 75)
+# Membuat Tabel Menggunakan Pandas
+df = pd.DataFrame({
+    'xi_asli': x_i,
+    'yi_asli': y_i,
+    'Xi=log(xi)': X_i,
+    'Yi=log(yi)': Y_i, 
+    'y_pred_model': y_model,
+    '(yi-ybar)^2': (y_i - y_bar)**2,
+    '(yi-model)^2': (y_i - y_model)**2
+})
+sum_row = df.sum(numeric_only=True)
+sum_row.name = 'Σ'
+df_final = pd.concat([df, sum_row.to_frame().T])
+
+print("TABEL DETAIL PERHITUNGAN:")
+print(df_final.round(7).to_string())
+print("-" * 75)

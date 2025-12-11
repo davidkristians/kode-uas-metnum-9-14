@@ -1,118 +1,120 @@
+import numpy as np
+import pandas as pd
 import math
 
-# --- 1. Fungsi Transformasi (Inversi / Kebalikan) ---
-def transform_inverse(data):
-    # Mengubah data menjadi 1/data
-    return [1/val for val in data]
+# =========================================================================
+# 1. INPUT DATA & MODEL (SATURATION GROWTH: y = alpha*x / (beta + x))
+# =========================================================================
+# Data Contoh (Gunakan data dari Pertemuan 9.xlsx - Saturation Growth Rate.csv Anda)
+# Pastikan tidak ada nilai x=0 atau y=0
+# x_i = np.array([1, 2, 3, 4, 5, 6, 7]) 
+# y_i = np.array([0.5, 0.8, 1.0, 1.1, 1.2, 1.25, 1.28]) # Data Y asli (contoh)
 
-# --- 2. Fungsi Hitung Slope (a1) pada Data Ter-inversi ---
-def hitung_slope(x_inv, y_inv):
-    n = len(x_inv)
-    sum_x = sum(x_inv)
-    sum_y = sum(y_inv)
-    sum_xy = sum([xi * yi for xi, yi in zip(x_inv, y_inv)])
-    sum_x2 = sum([xi ** 2 for xi in x_inv])
+x_i = np.array([2, 4, 6, 8, 10])
+y_i = np.array([4, 5.71, 6.67, 7.27, 7.69])
+n = len(y_i)
 
-    # Rumus Linear Regression biasa
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    penyebut = (n * sum_x2) - (sum_x ** 2)
-    
-    return pembilang / penyebut
+# --- TAHAP LINEARISASI (Transformasi x dan y) ---
+# X = 1/x  ;  Y = 1/y
+# Model Linear: Y = A0 + A1 * X
+try:
+    X_i = 1 / x_i 
+    Y_i = 1 / y_i 
+except ZeroDivisionError:
+    print("Error: Terdapat nilai x=0 atau y=0 dalam data yang akan menyebabkan pembagian nol.")
+    exit()
 
-# --- 3. Fungsi Hitung Intercept (a0) pada Data Ter-inversi ---
-def hitung_intercept(x_inv, y_inv, slope):
-    n = len(x_inv)
-    mean_x = sum(x_inv) / n
-    mean_y = sum(y_inv) / n
-    
-    # a0 = y_rata - (slope * x_rata)
-    return mean_y - (slope * mean_x)
+# --- DEFINISI FUNGSI BASIS (Matriks [Z]) ---
+# z0 = 1 (untuk koefisien A0)
+# z1 = X = 1/x (untuk koefisien A1)
+z_0 = np.ones_like(X_i)
+z_1 = X_i
+Z = np.stack([z_0, z_1], axis=1)  # Matriks Z (n x 2)
 
-# --- 4. Fungsi Prediksi Saturation Growth ---
-def prediksi_saturation(x_val, alpha, beta):
-    # Rumus: y = alpha * (x / (beta + x))
-    return alpha * (x_val / (beta + x_val))
+# Vektor Y (sudah ditransformasi)
+Y_vec = Y_i.reshape(-1, 1)
 
-# --- 5. Fungsi Standard Deviation (Sy) - Data Asli ---
-def hitung_std_dev(y):
-    n = len(y)
-    mean_y = sum(y) / n
-    sum_sq_diff = sum([(yi - mean_y)**2 for yi in y])
-    return math.sqrt(sum_sq_diff / (n - 1))
+# =========================================================================
+# 2. PERHITUNGAN KOEFISIEN LINEAR MENGGUNAKAN LEAST SQUARES (G-LS)
+# =========================================================================
+Z_T_Z = Z.T @ Z
+Z_T_Y = Z.T @ Y_vec
 
-# --- 6. Fungsi Standard Error (Sy/x) ---
-def hitung_std_error_sat(x, y, alpha, beta):
-    n = len(x)
-    sum_error_sq = 0
-    
-    # Menghitung residual pada skala ASLI: (y_asli - y_prediksi)^2
-    for i in range(n):
-        y_pred = prediksi_saturation(x[i], alpha, beta)
-        residual = y[i] - y_pred
-        sum_error_sq += residual ** 2
-        
-    # Rumus: sqrt( sum_error_sq / (n-2) )
-    return math.sqrt(sum_error_sq / (n - 2))
+try:
+    A = np.linalg.inv(Z_T_Z) @ Z_T_Y
+except np.linalg.LinAlgError:
+    print("Error: Matriks Singular.")
+    exit()
 
-# --- 7. Fungsi Korelasi (r) pada Data Ter-inversi ---
-def hitung_korelasi_inv(x_inv, y_inv):
-    n = len(x_inv)
-    sum_x = sum(x_inv)
-    sum_y = sum(y_inv)
-    sum_xy = sum([xi * yi for xi, yi in zip(x_inv, y_inv)])
-    sum_x2 = sum([xi ** 2 for xi in x_inv])
-    sum_y2 = sum([yi ** 2 for yi in y_inv])
+# Ambil hasil koefisien Linear [A0, A1]
+A_linear = A.flatten()
+A0 = A_linear[0] # A0 = 1/alpha
+A1 = A_linear[1] # A1 = beta/alpha
 
-    pembilang = (n * sum_xy) - (sum_x * sum_y)
-    term_x = (n * sum_x2) - (sum_x ** 2)
-    term_y = (n * sum_y2) - (sum_y ** 2)
-    
-    r = pembilang / math.sqrt(term_x * term_y)
-    return r, r**2
+# =========================================================================
+# 3. TRANSFORMASI KOEFISIEN KEMBALI KE BENTUK NON-LINEAR
+# =========================================================================
+# alpha = 1 / A0
+# beta = A1 * alpha
+alpha = 1 / A0
+beta = A1 * alpha 
 
-# ==========================================
-# MAIN PROGRAM
-# ==========================================
+# Nilai prediksi model pada y ASLI: y_model = alpha * x / (beta + x)
+y_model = (alpha * x_i) / (beta + x_i)
 
-# 1. INPUT DATA DARI GAMBAR
-x = [2, 4, 6, 8, 10]
-y = [4, 5.71, 6.67, 7.27, 7.69]
+# =========================================================================
+# 4. ANALISIS KUALITAS REGRESI LENGKAP (Diukur pada data ASLI y_i)
+# =========================================================================
+m_vars = Z.shape[1] 
 
-print("=== HASIL SATURATION GROWTH RATE REGRESSION ===")
+# --- METRIK BERDASARKAN DATA ASLI (y_i) ---
+y_bar = np.mean(y_i)
+St_y = np.sum((y_i - y_bar)**2) 
+Sr_y = np.sum((y_i - y_model)**2) 
 
-# 2. TRANSFORMASI DATA (1/x dan 1/y)
-x_inv = transform_inverse(x)
-y_inv = transform_inverse(y)
+# Koefisien Determinasi ASLI (r^2)
+r2_asli = (St_y - Sr_y) / St_y
+r_asli = np.sqrt(r2_asli)
 
-# 3. HITUNG SLOPE (a1)
-a1 = hitung_slope(x_inv, y_inv)
-print(f"1. Slope (a1)      : {a1:.6f}")
+# Standar Error Estimasi ASLI (Sy/x)
+Sy_x_asli = np.sqrt(Sr_y / (n - m_vars))
 
-# 4. HITUNG INTERCEPT (a0)
-a0 = hitung_intercept(x_inv, y_inv, a1)
-print(f"2. Intercept (a0)  : {a0:.6f}")
+# Standar Deviasi ASLI (Sy)
+Sy_asli = np.sqrt(St_y / (n - 1))
 
-# 5. KONVERSI KE PARAMETER ASLI (Alpha dan Beta)
-# a0 = 1/alpha  -> alpha = 1/a0
-alpha = 1 / a0
+# =========================================================================
+# 5. HASIL OUTPUT & TABEL DETAIL
+# =========================================================================
+print("-" * 75)
+print("HASIL REGRESI SATURATION GROWTH (y = alpha*x / (beta + x))")
+print("-" * 75)
 
-# a1 = beta/alpha -> beta = a1 * alpha
-beta = a1 * alpha
+print(f"Koefisien Linear: A0 = {A0:.7f}, A1 = {A1:.7f}")
+print(f"Koefisien Non-Linear: alpha = {alpha:.7f}, beta = {beta:.7f}")
+print(f"\nPersamaan Regresi Final: y = {alpha:.4f} * x / ({beta:.4f} + x)")
 
-print(f"3. Alpha (α)       : {alpha:.6f}")
-print(f"4. Beta (β)        : {beta:.6f}")
-print(f"   Persamaan akhir : y = {round(alpha)} * (x / ({round(beta)} + x))")
+print("-" * 75)
+print("METRIK KUALITAS MODEL (Dihitung pada data ASLI 'y'):")
+print(f"Sy (Standard Deviation Asli)    = {Sy_asli:.7f}")
+print(f"Sy/x (Std Error Estimasi Asli)  = {Sy_x_asli:.7f}")
+print(f"r^2 (Koef. Determinasi Asli)    = {r2_asli:.7f} ({r2_asli*100:.2f}%)")
+print(f"r (Koef. Korelasi Asli)         = {r_asli:.7f}")
 
-# 6. HITUNG STANDARD DEVIATION (Data Asli)
-sy = hitung_std_dev(y)
-print(f"5. Standard Deviasi (Sy)  : {sy:.6f}")
+print("-" * 75)
+# Membuat Tabel Menggunakan Pandas
+df = pd.DataFrame({
+    'xi_asli': x_i,
+    'yi_asli': y_i,
+    'Xi=1/xi': X_i,
+    'Yi=1/yi': Y_i, 
+    'y_pred_model': y_model,
+    '(yi-ybar)^2': (y_i - y_bar)**2,
+    '(yi-model)^2': (y_i - y_model)**2
+})
+sum_row = df.sum(numeric_only=True)
+sum_row.name = 'Σ'
+df_final = pd.concat([df, sum_row.to_frame().T])
 
-# 7. HITUNG STANDARD ERROR (Sy/x)
-# Error dihitung antara Y Asli dengan Y Prediksi Rumus Saturation
-syx = hitung_std_error_sat(x, y, alpha, beta)
-print(f"6. Standard Error (Sy/x)  : {syx:.6f}")
-
-# 8. HITUNG KORELASI (Linearized Data)
-r, r2 = hitung_korelasi_inv(x_inv, y_inv)
-print(f"7. Koefisien Korelasi (r)     : {r:.6f}")
-print(f"8. Koefisien Determinasi (r²) : {r2:.6f} ({r2*100:.5f}%)")
+print("TABEL DETAIL PERHITUNGAN:")
+print(df_final.round(7).to_string())
+print("-" * 75)
