@@ -29,7 +29,7 @@ def interpolasi_linear(x0, y0, x1, y1, x_find):
 
 # --- BAGIAN 2: PROGRAM UTAMA (INPUT USER) ---
 def main():
-    print("\n=== PROGRAM INTERPOLASI LINEAR ===")
+    print("Interpolasi Linear")
     print("Mencari nilai f(x) di antara dua titik.")
     print("-" * 45)
 
@@ -55,7 +55,7 @@ def main():
 
         # --- OUTPUT TABEL DATA (Mirip Kiri Gambar) ---
         print("\n" + "="*45)
-        print("DATA YANG DIKETAHUI:")
+        print("Data yg diketahui:")
         print(f"{'i':<5} | {'xi':<10} | {'f(xi)':<10}")
         print("-" * 30)
         print(f"{'0':<5} | {x0:<10.4f} | {y0:<10.5f}")
@@ -63,17 +63,17 @@ def main():
         
         # --- OUTPUT HASIL PERHITUNGAN (Mirip Kanan Gambar) ---
         print("\n" + "="*45)
-        print("LANGKAH PERHITUNGAN:")
+        print("Langkah Perhitungan:")
         print(f"1. Slope (b1) / First : {b1:.5f}")
         print(f"2. Rumus: f(x) = f(x0) + b1 * (xf - x0)")
         
         # Menampilkan substitusi angka agar mirip gambar
         # Contoh: f(xi) = 0 + 0.3584 * 1
-        print(f"   f({xf}) = {y0} + {b1:.4f} * ({xf} - {x0})")
-        print(f"   f({xf}) = {y0} + {b1:.4f} * {xf - x0}")
+        print(f"          f({xf}) = {y0} + {b1:.4f} * ({xf} - {x0})")
+        print(f"          f({xf}) = {y0} + {b1:.4f} * {xf - x0}")
         
         print("-" * 45)
-        print(f"HASIL AKHIR f({xf}) = {hasil:.5f}")
+        print(f"Hasil Akhir f({xf}) = {hasil:.5f}")
         print("="*45)
 
     except ValueError:

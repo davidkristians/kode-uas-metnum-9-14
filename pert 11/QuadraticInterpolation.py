@@ -53,7 +53,7 @@ def interpolasi_kuadratik(points, x_find):
 
 # --- BAGIAN 2: PROGRAM UTAMA ---
 def main():
-    print("\n=== PROGRAM INTERPOLASI KUADRATIK (NEWTON) ===")
+    print("Quadratic Interpolation")
     print("Dibutuhkan 3 titik data untuk estimasi kurva.")
     print("-" * 50)
 
@@ -79,7 +79,7 @@ def main():
 
         # --- OUTPUT TABEL (MIRIP GAMBAR EXCEL) ---
         print("\n" + "="*60)
-        print("TABEL DIVIDED DIFFERENCE:")
+        print("Tabel Perbedaan:")
         print(f"{'i':<3} | {'xi':<8} | {'f(xi)':<10} | {'First (b1)':<12} | {'Second (b2)':<12}")
         print("-" * 60)
         
@@ -94,7 +94,7 @@ def main():
 
         # --- OUTPUT LANGKAH PERHITUNGAN ---
         print("\n" + "="*60)
-        print("LANGKAH PERHITUNGAN FORMULA:")
+        print("Langkah Perhitungan:")
         print(f"f(x) = b0 + b1*(x-x0) + b2*(x-x0)*(x-x1)")
         print("-" * 60)
         

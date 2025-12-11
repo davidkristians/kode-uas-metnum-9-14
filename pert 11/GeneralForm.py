@@ -55,7 +55,7 @@ def newton_general_interpolation(x_points, y_points, x_find):
 
 # --- BAGIAN 2: PROGRAM UTAMA ---
 def main():
-    print("\n=== PROGRAM INTERPOLASI NEWTON (GENERAL FORM) ===")
+    print("General Form Interpolation")
     print("Mendukung N titik data (Linear, Kuadratik, Kubik, dst)")
     print("-" * 55)
 
@@ -81,7 +81,7 @@ def main():
 
         # --- OUTPUT TABEL (DINAMIS SESUAI JUMLAH TITIK) ---
         print("\n" + "="*80)
-        print("TABEL DIVIDED DIFFERENCE:")
+        print("Tabel Perbedaan:")
         
         # Header Tabel
         header = f"{'i':<3} | {'xi':<8} | {'f(xi)':<10}"
