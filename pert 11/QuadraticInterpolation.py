@@ -105,7 +105,7 @@ def main():
         print(f"f({xf}) = {data['b0']} + {data['term1']:.4f} + ({data['term2']:.4f})")
         
         print("-" * 60)
-        print(f"HASIL AKHIR f({xf}) = {data['hasil']:.4f}")
+        print(f"Hasil Akhir f({xf}) = {data['hasil']:.4f}")
         print("="*60)
 
     except ValueError:

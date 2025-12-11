@@ -105,12 +105,12 @@ def main():
 
         # --- OUTPUT LANGKAH PERHITUNGAN ---
         print("\n" + "="*80)
-        print("KOEFISIEN POLINOMIAL (b):")
+        print("Koefisien Polinomial (b):")
         for i, val in enumerate(koef_b):
             print(f"b{i} = {val:.6f}")
             
         print("-" * 80)
-        print(f"HASIL AKHIR f({x_target}) = {hasil_akhir:.5f}")
+        print(f"Hasil Akhir f({x_target}) = {hasil_akhir:.5f}")
         print("="*80)
 
     except ValueError:

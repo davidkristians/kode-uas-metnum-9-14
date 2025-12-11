@@ -75,7 +75,7 @@ def main():
 
         # --- OUTPUT HASIL ---
         print("\n" + "="*65)
-        print("HASIL PERHITUNGAN")
+        print("Hasil Perhitungan")
         print("-" * 65)
         
         # 1. Hasil Linear
@@ -93,7 +93,7 @@ def main():
         print("-" * 65)
         
         # 3. Langkah Perhitungan Error
-        print("RUMUS ESTIMASI ERROR:")
+        print("Rumus Estimasi Error:")
         print("Error = b2 * (xf - x0) * (xf - x1)")
         print(f"Error = {res['b2']:.5f} * ({xf} - {x0}) * ({xf} - {x1})")
         
