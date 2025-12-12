@@ -1,92 +1,113 @@
+import numpy as np
+import pandas as pd
 import math
 
-# --- KONFIGURASI PARAMETER FISIKA ---
+# =========================================================================
+# 1. PARAMETER FISIKA (SESUAI EXCEL)
+# =========================================================================
 g = 9.8
 m = 68.1
 c = 12.5
 
-# --- BAGIAN 1: Definisi Fungsi Matematis ---
-def fungsi_v(t):
-    """
-    Rumus: v(t) = (gm/c) * (1 - e^(-(c/m)t))
-    """
+# Fungsi v(t) - Kecepatan
+def v(t):
     term1 = (g * m) / c
+    # Mencegah overflow untuk t sangat besar (opsional)
     try:
         term2 = 1 - math.exp(-(c / m) * t)
     except OverflowError:
-        term2 = 1.0 
+        term2 = 1.0
     return term1 * term2
 
-# --- BAGIAN 2: Proses Integrasi ---
-def integrasi_trapezoidal(a, b, n):
-    # Hitung lebar segmen (h)
-    h = (b - a) / n
+# =========================================================================
+# 2. ALGORITMA TRAPEZOIDAL (FUNGSI UMUM)
+# =========================================================================
+def hitung_trapezoidal(t0, t1, n):
+    """
+    Menghitung Integral Trapesium Gabungan.
+    Mengembalikan: (integral, h, dataframe_tabel)
+    """
+    h = (t1 - t0) / n
     
-    # Hitung ujung awal dan akhir
-    f_awal = fungsi_v(a)
-    f_akhir = fungsi_v(b)
-    sum_result = f_awal + f_akhir
+    # List untuk menyimpan data per baris
+    data = []
     
-    # Siapkan list untuk menyimpan data tabel
-    # Format data: (index, waktu_t, nilai_v)
-    data_tabel = []
-    data_tabel.append((0, a, f_awal)) 
+    sum_fx = 0.0
     
-    # Hitung segmen tengah
-    for i in range(1, n):
-        t = a + i * h
-        val = fungsi_v(t)
-        sum_result += 2 * val
-        data_tabel.append((i, t, val))
+    # Loop dari i=0 sampai n
+    for i in range(n + 1):
+        t_val = t0 + i * h
+        fx = v(t_val)
         
-    data_tabel.append((n, b, f_akhir))
+        # Tentukan koefisien bobot (1 untuk ujung, 2 untuk tengah)
+        weight = 1 if (i == 0 or i == n) else 2
+        
+        term = weight * fx
+        sum_fx += term
+        
+        # Tambahkan ke data tabel
+        note = "=> f(x0)" if i == 0 else ("=> f(xn)" if i == n else "")
+        data.append({
+            'i': i,
+            't': t_val,
+            'f(xi)': fx,
+            'Weight': weight,
+            'Weight * f(xi)': term,
+            'Note': note
+        })
+        
+    # Rumus Akhir: I = (h/2) * [f0 + 2*sigma + fn]
+    integral = (h / 2) * sum_fx
     
-    # Hitung hasil akhir Integral
-    integral = (h / 2) * sum_result
-    return integral, h, data_tabel
+    return integral, h, pd.DataFrame(data)
 
-# --- BAGIAN 3: PROGRAM UTAMA ---
+# =========================================================================
+# 3. PROGRAM UTAMA (MENJALANKAN SKENARIO EXCEL)
+# =========================================================================
 def main():
-    print("\n=== PROGRAM INTEGRASI NUMERIK TRAPEZOIDAL ===")
-    print(f"Parameter: g={g}, m={m}, c={c}")
-    print("-" * 45)
+    print("=" * 80)
+    print("       INTEGRASI NUMERIK: ATURAN TRAPEZOIDAL")
+    print(f"       Fungsi: v(t) = gm/c * (1 - e^(-c/m * t))")
+    print(f"       Parameter: g={g}, m={m}, c={c}")
+    print("=" * 80)
 
-    try:
-        # --- INPUT USER ---
-        t0 = float(input("Masukkan batas bawah (t0) : "))
-        t1 = float(input("Masukkan batas atas  (t1) : "))
-        n  = int(input("Masukkan jumlah segmen (n): "))
+    # Batas Integrasi Default
+    t_start = 0.0
+    t_end = 10.0
 
-        if n <= 0:
-            print("Error: Jumlah segmen (n) harus > 0.")
-            return
+    # Skenario sesuai Excel
+    scenarios = [10, 20, 50] 
 
-        # --- PROSES PERHITUNGAN ---
-        hasil_integral, lebar_h, tabel = integrasi_trapezoidal(t0, t1, n)
-
-        # --- OUTPUT HASIL UTAMA ---
-        print("\n" + "="*45)
-        print(f"Lebar segmen (h)      : {lebar_h}")
-        print(f"HASIL INTEGRAL (I)    : {hasil_integral:.4f}")
-        print("="*45)
-
-        # --- OUTPUT TABEL (LANGSUNG TAMPIL) ---
-        print("\n--- Tabel Langkah Perhitungan ---")
-        print(f"{'i (segmen)':<12} | {'t (waktu)':<12} | {'f(xi) / v(t)':<15}")
-        print("-" * 45)
+    for n in scenarios:
+        I, h, df = hitung_trapezoidal(t_start, t_end, n)
         
-        # Loop untuk mencetak baris data
-        for baris in tabel:
-            idx, t_val, fx_val = baris
-            # Penanda khusus untuk f(x0) dan f(xn) agar mirip excel Anda
-            keterangan = ""
-            if idx == 0: keterangan = "=> f(x0)"
-            elif idx == n: keterangan = "=> f(xn)"
+        print(f"\n>>> SKENARIO n = {n} (h = {h:.4f})")
+        print("-" * 80)
+        
+        # Tampilkan 5 baris pertama dan 5 baris terakhir agar tidak kepanjangan
+        if n > 15:
+            print("Tabel Perhitungan (Awal & Akhir):")
+            print(df.head(5).to_string(index=False))
+            print("... [Data Tengah Disembunyikan] ...")
+            print(df.tail(5).to_string(index=False))
+        else:
+            print(df.to_string(index=False))
             
-            print(f"{idx:<12} | {t_val:<12.4f} | {fx_val:<12.6f} {keterangan}")
+        print("-" * 80)
+        print(f"HASIL INTEGRAL (JARAK) = {I:.6f}")
+        print("=" * 80)
 
+    # --- OPSI INPUT MANUAL ---
+    print("\nIngin mencoba nilai n sendiri? (Ketik 0 untuk keluar)")
+    try:
+        n_user = int(input("Masukkan n: "))
+        if n_user > 0:
+            I, h, df = hitung_trapezoidal(t_start, t_end, n_user)
+            print("-" * 80)
+            print(f"Hasil untuk n={n_user} (h={h:.4f}) : {I:.6f}")
+            print("-" * 80)
     except ValueError:
-        print("\nError: Pastikan Anda memasukkan angka yang benar.")
+        pass
 
 if __name__ == "__main__":
     main()

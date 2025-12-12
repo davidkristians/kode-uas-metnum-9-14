@@ -1,137 +1,116 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Definisi Fungsi Polinomial ---
-def fungsi_f(x):
-    """
-    f(x) = 0.2 + 25x - 200x^2 + 675x^3 - 900x^4 + 400x^5
-    """
+# =========================================================================
+# 1. DEFINISI FUNGSI POLINOMIAL (SESUAI EXCEL)
+# f(x) = 0.2 + 25x - 200x^2 + 675x^3 - 900x^4 + 400x^5
+# =========================================================================
+def f(x):
     return 0.2 + (25*x) - (200*x**2) + (675*x**3) - (900*x**4) + (400*x**5)
 
-# --- BAGIAN 2: Algoritma Mixed Integration ---
-def integrasi_campuran(x_points):
-    n = len(x_points)
+# =========================================================================
+# 2. ALGORITMA INTEGRASI CAMPURAN
+# =========================================================================
+def integrasi_campuran_otomatis(points_x):
+    n = len(points_x)
     total_integral = 0
     data_tabel = []
     
-    # Toleransi perbedaan float (karena komputer kadang 0.1 != 0.100000001)
+    # Toleransi untuk membandingkan float (misal 0.1 vs 0.100000001)
     epsilon = 1e-9 
     
     i = 0
     while i < n - 1:
-        # Hitung jarak segmen saat ini dan segmen-segmen berikutnya (jika ada)
-        h1 = x_points[i+1] - x_points[i]
+        # Hitung h untuk segmen saat ini
+        h1 = points_x[i+1] - points_x[i]
         
-        h2 = 0
-        if i + 2 < n:
-            h2 = x_points[i+2] - x_points[i+1]
-            
-        h3 = 0
-        if i + 3 < n:
-            h3 = x_points[i+3] - x_points[i+2]
+        # Cek h untuk segmen berikutnya (jika ada)
+        h2 = points_x[i+2] - points_x[i+1] if i + 2 < n else -1
+        h3 = points_x[i+3] - points_x[i+2] if i + 3 < n else -1
 
-        # --- CEK 1: Apakah bisa pakai Simpson 3/8? (Butuh 3 segmen h sama) ---
+        # --- LOGIKA PRIORITAS ---
+        
+        # 1. Cek Simpson 3/8 (Butuh 3 segmen dengan h sama)
         if (i + 3 < n) and (abs(h1 - h2) < epsilon) and (abs(h2 - h3) < epsilon):
-            # Rumus Simpson 3/8: (3h/8) * (f0 + 3f1 + 3f2 + f3)
-            f0 = fungsi_f(x_points[i])
-            f1 = fungsi_f(x_points[i+1])
-            f2 = fungsi_f(x_points[i+2])
-            f3 = fungsi_f(x_points[i+3])
+            method = "Simpson 3/8"
+            f0, f1, f2, f3 = f(points_x[i]), f(points_x[i+1]), f(points_x[i+2]), f(points_x[i+3])
             
-            luas = (3 * h1 / 8) * (f0 + 3*f1 + 3*f2 + f3)
-            metode = "3/8 Simpson"
+            # Rumus: (3h/8) * (f0 + 3f1 + 3f2 + f3)
+            area = (3 * h1 / 8) * (f0 + 3*f1 + 3*f2 + f3)
             
-            # Simpan data & Loncat 3 langkah
-            data_tabel.append((x_points[i], f0, luas, metode))
-            # Tambahkan baris kosong untuk titik tengah agar rapi di tabel
-            data_tabel.append((x_points[i+1], f1, "", ""))
-            data_tabel.append((x_points[i+2], f2, "", ""))
+            data_tabel.append({'x': points_x[i], 'f(x)': f0, 'h': h1, 'Ii': area, 'Method': method})
+            data_tabel.append({'x': points_x[i+1], 'f(x)': f1, 'h': h1, 'Ii': "-", 'Method': "  (cont'd)"})
+            data_tabel.append({'x': points_x[i+2], 'f(x)': f2, 'h': h1, 'Ii': "-", 'Method': "  (cont'd)"})
             
-            total_integral += luas
-            i += 3
+            total_integral += area
+            i += 3 # Lompat 3 titik
             
-        # --- CEK 2: Apakah bisa pakai Simpson 1/3? (Butuh 2 segmen h sama) ---
+        # 2. Cek Simpson 1/3 (Butuh 2 segmen dengan h sama)
         elif (i + 2 < n) and (abs(h1 - h2) < epsilon):
-            # Rumus Simpson 1/3: (h/3) * (f0 + 4f1 + f2)
-            f0 = fungsi_f(x_points[i])
-            f1 = fungsi_f(x_points[i+1])
-            f2 = fungsi_f(x_points[i+2])
+            method = "Simpson 1/3"
+            f0, f1, f2 = f(points_x[i]), f(points_x[i+1]), f(points_x[i+2])
             
-            luas = (h1 / 3) * (f0 + 4*f1 + f2)
-            metode = "1/3 Simpson"
+            # Rumus: (h/3) * (f0 + 4f1 + f2)
+            area = (h1 / 3) * (f0 + 4*f1 + f2)
             
-            # Simpan data & Loncat 2 langkah
-            data_tabel.append((x_points[i], f0, luas, metode))
-            data_tabel.append((x_points[i+1], f1, "", ""))
+            data_tabel.append({'x': points_x[i], 'f(x)': f0, 'h': h1, 'Ii': area, 'Method': method})
+            data_tabel.append({'x': points_x[i+1], 'f(x)': f1, 'h': h1, 'Ii': "-", 'Method': "  (cont'd)"})
             
-            total_integral += luas
-            i += 2
+            total_integral += area
+            i += 2 # Lompat 2 titik
             
-        # --- OPSI TERAKHIR: Pakai Trapezoidal (1 segmen) ---
+        # 3. Default: Trapesium (1 segmen)
         else:
-            # Rumus Trapz: (h/2) * (f0 + f1)
-            f0 = fungsi_f(x_points[i])
-            f1 = fungsi_f(x_points[i+1])
+            method = "Trapezoidal"
+            f0, f1 = f(points_x[i]), f(points_x[i+1])
             
-            luas = (h1 / 2) * (f0 + f1)
-            metode = "Trapz"
+            # Rumus: (h/2) * (f0 + f1)
+            area = (h1 / 2) * (f0 + f1)
             
-            # Simpan data & Loncat 1 langkah
-            data_tabel.append((x_points[i], f0, luas, metode))
+            data_tabel.append({'x': points_x[i], 'f(x)': f0, 'h': h1, 'Ii': area, 'Method': method})
             
-            total_integral += luas
-            i += 1
+            total_integral += area
+            i += 1 # Lompat 1 titik
 
-    # Tambahkan titik paling terakhir ke tabel
-    data_tabel.append((x_points[-1], fungsi_f(x_points[-1]), "", ""))
+    # Tambahkan titik terakhir untuk display
+    data_tabel.append({'x': points_x[-1], 'f(x)': f(points_x[-1]), 'h': "-", 'Ii': "-", 'Method': "End"})
     
-    return total_integral, data_tabel
+    return total_integral, pd.DataFrame(data_tabel)
 
-# --- BAGIAN 3: PROGRAM UTAMA ---
+# =========================================================================
+# 3. PROGRAM UTAMA
+# =========================================================================
 def main():
-    print("\n=== PROGRAM INTEGRASI CAMPURAN (UNEQUAL + SIMPSON) ===")
-    print("Mendeteksi otomatis: Simpson 3/8 -> Simpson 1/3 -> Trapezoidal")
-    print("-" * 65)
+    print("=" * 95)
+    print("       INTEGRASI NUMERIK: CAMPURAN (UNEQUAL + SIMPSON)")
+    print("       Logika: Cek Simpson 3/8 -> Cek Simpson 1/3 -> Trapesium")
+    print("=" * 95)
 
-    try:
-        # --- INPUT USER ---
-        print("Silakan masukkan deret x (pisahkan dengan koma).")
-        print("-" * 65)
+    # Input Data Sesuai Excel
+    x_input = [0, 0.12, 0.22, 0.32, 0.36, 0.40, 0.44, 0.54, 0.64, 0.70, 0.80]
+    
+    print(f"Data Input x: {x_input}")
+    print("-" * 95)
+
+    I, df = integrasi_campuran_otomatis(x_input)
+    
+    # Tampilkan Tabel
+    # Format agar rapi
+    print(df.to_string(index=False))
+    
+    print("-" * 95)
+    print(f"HASIL INTEGRAL TOTAL (I) = {I:.6f}")
+    
+    # Perbandingan dengan True Value
+    def F_integral(x):
+        return 0.2*x + 12.5*x**2 - (200/3)*x**3 + (675/4)*x**4 - 180*x**5 + (200/3)*x**6
         
-        input_str = input("Masukkan nilai x: ")
-        
-        # Konversi string ke list float dan urutkan
-        x_points = sorted([float(x) for x in input_str.split(',')])
-
-        if len(x_points) < 2:
-            print("Error: Butuh minimal 2 titik.")
-            return
-
-        # --- PROSES HITUNG ---
-        hasil, tabel = integrasi_campuran(x_points)
-
-        # --- OUTPUT HASIL ---
-        print("\n" + "="*65)
-        print(f"HASIL INTEGRAL (I) : {hasil:.6f}")
-        print("="*65)
-
-        # --- OUTPUT TABEL ---
-        print("\n--- Detail Perhitungan ---")
-        print(f"{'x':<8} | {'f(x)':<12} | {'Luas Segmen':<15} | {'Metode Digunakan':<15}")
-        print("-" * 65)
-        
-        for baris in tabel:
-            x_val, fx_val, luas, metode = baris
-            
-            # Formatting agar rapi (jika luas kosong/string kosong)
-            if luas != "":
-                luas_str = f"{luas:.6f}"
-            else:
-                luas_str = ""
-                
-            print(f"{x_val:<8.3f} | {fx_val:<12.5f} | {luas_str:<15} | {metode:<15}")
-
-    except ValueError:
-        print("\nError: Format input salah.")
+    true_val = F_integral(0.8) - F_integral(0)
+    error = abs((true_val - I)/true_val) * 100
+    
+    print(f"True Value (Analitik)    = {true_val:.6f}")
+    print(f"Error Relatif            = {error:.4f}%")
+    print("=" * 95)
 
 if __name__ == "__main__":
     main()

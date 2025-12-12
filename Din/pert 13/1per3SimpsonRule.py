@@ -1,100 +1,106 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Definisi Fungsi Polinomial ---
-def fungsi_f(x):
-    """
-    f(x) = 0.2 + 25x - 200x^2 + 675x^3 - 900x^4 + 400x^5
-    """
+# =========================================================================
+# 1. DEFINISI FUNGSI POLINOMIAL (SESUAI EXCEL)
+# f(x) = 0.2 + 25x - 200x^2 + 675x^3 - 900x^4 + 400x^5
+# =========================================================================
+def f(x):
     return 0.2 + (25*x) - (200*x**2) + (675*x**3) - (900*x**4) + (400*x**5)
 
-# --- BAGIAN 2: Proses Integrasi Simpson 1/3 ---
-def integrasi_simpson(a, b, n):
-    # Validasi: Simpson 1/3 wajib n genap
+# =========================================================================
+# 2. ALGORITMA SIMPSON 1/3
+# =========================================================================
+def hitung_simpson_1_3(a, b, n):
+    # Validasi: n harus GENAP
     if n % 2 != 0:
-        return None, None, "Error: Jumlah segmen (n) harus GENAP untuk Simpson 1/3."
+        print(f"ERROR: Jumlah segmen n={n} harus GENAP untuk Simpson 1/3!")
+        return None, None, None
 
-    # 1. Hitung lebar segmen (h)
     h = (b - a) / n
-    
-    # 2. Hitung ujung awal dan akhir f(x0) + f(xn)
-    f_awal = fungsi_f(a)
-    f_akhir = fungsi_f(b)
-    total_sum = f_awal + f_akhir
+    sum_fx = 0.0
     
     # List untuk menyimpan data tabel
-    data_tabel = []
-    # Masukkan data baris pertama (x0)
-    data_tabel.append((0, a, f_awal, 1)) # Format: (i, x, fx, koefisien)
-
-    # 3. Loop untuk menghitung bagian tengah
-    # Rumus: 4 * (jumlah ganjil) + 2 * (jumlah genap)
+    data = []
     
-    for i in range(1, n):
-        x = a + i * h
-        fx = fungsi_f(x)
+    for i in range(n + 1):
+        x_val = a + i * h
+        fx = f(x_val)
         
-        # Tentukan koefisien pengali (4 untuk ganjil, 2 untuk genap)
-        if i % 2 != 0:
-            koefisien = 4
-        else:
-            koefisien = 2
+        # Tentukan Koefisien (Pola: 1, 4, 2, 4, 2, ..., 4, 1)
+        if i == 0 or i == n:
+            coeff = 1
+        elif i % 2 != 0: # Ganjil
+            coeff = 4
+        else:            # Genap
+            coeff = 2
             
-        total_sum += koefisien * fx
-        data_tabel.append((i, x, fx, koefisien))
-
-    # Masukkan data baris terakhir (xn)
-    data_tabel.append((n, b, f_akhir, 1))
-
-    # 4. Hasil akhir dikali (h/3)
-    integral = (h / 3) * total_sum
+        term = coeff * fx
+        sum_fx += term
+        
+        # Simpan data
+        note = "=> f(x0)" if i == 0 else ("=> f(xn)" if i == n else "")
+        data.append({
+            'i': i,
+            'x': x_val,
+            'f(xi)': fx,
+            'Coeff': coeff,
+            'Term (C*f)': term,
+            'Note': note
+        })
+        
+    # Rumus: I = (h/3) * sum
+    integral = (h / 3) * sum_fx
     
-    return integral, h, data_tabel
+    return integral, h, pd.DataFrame(data)
 
-# --- BAGIAN 3: PROGRAM UTAMA (INPUT USER) ---
+# =========================================================================
+# 3. PROGRAM UTAMA
+# =========================================================================
 def main():
-    print("\n=== PROGRAM INTEGRASI SIMPSON'S 1/3 RULE ===")
-    print("f(x) = 0.2 + 25x - 200x^2 + 675x^3 - 900x^4 + 400x^5")
-    print("-" * 50)
+    print("=" * 85)
+    print("       INTEGRASI NUMERIK: ATURAN SIMPSON 1/3")
+    print("       f(x) = 0.2 + 25x - 200x^2 + 675x^3 - 900x^4 + 400x^5")
+    print("=" * 85)
 
-    try:
-        # --- INPUT USER ---
-        a = float(input("Masukkan batas bawah (a) : ")) # Sesuai gambar: 0
-        b = float(input("Masukkan batas atas  (b) : ")) # Sesuai gambar: 0.8
-        n = int(input("Masukkan jumlah segmen (n): ")) # Harus Genap, misal: 4
+    # Input Data Sesuai Excel
+    a = 0.0
+    b = 0.8
+    n = 4  # Harus Genap
 
-        # Panggil fungsi perhitungan
-        hasil, h, tabel = integrasi_simpson(a, b, n)
-
-        # Cek jika ada error (karena ganjil)
-        if tabel is str: # Jika kembalian berupa pesan error
-            print(f"\n[GAGAL] {tabel}")
-            return
-
-        # --- OUTPUT HASIL UTAMA ---
-        print("\n" + "="*50)
-        print(f"Lebar segmen (h)      : {h}")
-        print(f"HASIL INTEGRAL (I)    : {hasil:.6f}")
-        print("="*50)
-
-        # --- OUTPUT TABEL ---
-        # Menampilkan tabel dengan kolom Koefisien agar jelas mana dikali 4 atau 2
-        print("\n--- Tabel Langkah Perhitungan ---")
-        print(f"{'i':<5} | {'x':<10} | {'f(x)':<15} | {'Koef':<5} | {'Term (Koef*fx)':<15}")
-        print("-" * 60)
+    I, h, df = hitung_simpson_1_3(a, b, n)
+    
+    if I is not None:
+        print(f"Batas Bawah (a) : {a}")
+        print(f"Batas Atas (b)  : {b}")
+        print(f"Jumlah Segmen(n): {n} (h = {h:.4f})")
+        print("-" * 85)
         
-        for baris in tabel:
-            idx, x_val, fx_val, koef = baris
-            term = koef * fx_val
+        # Tampilkan Tabel
+        # Format angka agar rapi
+        pd.set_option('display.float_format', lambda x: '%.6f' % x)
+        print(df.to_string(index=False))
+        
+        print("-" * 85)
+        print(f"HASIL INTEGRAL (I) = {I:.6f}")
+        
+        # Hitung Nilai Sebenarnya (True Value) secara analitik
+        # Integral analitik dari f(x) dari 0 sampai 0.8
+        # Int(0.2) = 0.2x
+        # Int(25x) = 12.5x^2
+        # Int(-200x^2) = -200/3 x^3
+        # Int(675x^3) = 675/4 x^4
+        # Int(-900x^4) = -900/5 x^5
+        # Int(400x^5) = 400/6 x^6
+        def F_integral(x):
+            return 0.2*x + 12.5*x**2 - (200/3)*x**3 + (675/4)*x**4 - 180*x**5 + (200/3)*x**6
             
-            # Penanda khusus
-            ket = ""
-            if idx == 0: ket = " (Awal)"
-            elif idx == n: ket = " (Akhir)"
-
-            print(f"{idx:<5} | {x_val:<10.1f} | {fx_val:<15.3f} | {koef:<5} | {term:<15.4f}{ket}")
-
-    except ValueError:
-        print("\nError: Masukkan angka yang valid.")
+        true_val = F_integral(b) - F_integral(a)
+        error = abs((true_val - I)/true_val) * 100
+        
+        print(f"True Value (Analitik) = {true_val:.6f}")
+        print(f"Error Relatif         = {error:.4f}%")
+        print("=" * 85)
 
 if __name__ == "__main__":
     main()
