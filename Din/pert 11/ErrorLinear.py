@@ -1,109 +1,96 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Fungsi Perhitungan ---
-def hitung_slope(xa, ya, xb, yb):
-    """Menghitung First Divided Difference (b1)"""
-    if (xb - xa) == 0: return 0
-    return (yb - ya) / (xb - xa)
+# =========================================================================
+# 1. INPUT DATA (SESUAI FILE EXCEL Pertemuan 11 - Error Linear)
+# =========================================================================
+# Titik Awal (x0) dan Akhir (x1) untuk Interpolasi Linear
+x0 = 1.0
+y0 = 0.0
 
-def hitung_estimasi_error(p0, p1, p_extra, x_find):
-    """
-    Menghitung estimasi error interpolasi linear.
-    """
-    x0, y0 = p0
-    x1, y1 = p1
-    xm, ym = p_extra # Titik tambahan (x_extra)
+x1 = 6.0
+y1 = 1.791759
 
-    # 1. Hitung Hasil Linear (Prediksi Awal)
-    b1_linear = hitung_slope(x0, y0, x1, y1)
-    f_linear = y0 + b1_linear * (x_find - x0)
+# Titik Tambahan/Tengah (xm) untuk Estimasi Error
+# (Diambil dari baris ke-7 Excel: "x   4   1.386294")
+xm = 4.0
+ym = 1.386294
 
-    # 2. Hitung Koefisien b2 (untuk Error)
-    # Slope tingkat 1
-    slope_0_m = hitung_slope(x0, y0, xm, ym)
-    slope_m_1 = hitung_slope(xm, ym, x1, y1)
-    
-    # Slope tingkat 2 (b2)
-    b2 = (slope_m_1 - slope_0_m) / (x1 - x0)
+# Titik yang dicari (xf)
+xf = 2.0
 
-    # 3. Hitung Estimasi Error (Nilai Absolut)
-    # Rumus: R = b2 * (x - x0) * (x - x1)
-    term_error = b2 * (x_find - x0) * (x_find - x1)
+# =========================================================================
+# 2. PERHITUNGAN INTERPOLASI LINEAR
+# =========================================================================
+# Slope Linear (b1) antara x0 dan x1
+b1_linear = (y1 - y0) / (x1 - x0)
 
-    return {
-        'linear_result': f_linear,
-        'b1_linear': b1_linear,
-        'b2': b2,
-        'error_val': term_error,
-        'slope_0_m': slope_0_m,
-        'slope_m_1': slope_m_1
-    }
+# Hasil Interpolasi Linear
+f1 = y0 + b1_linear * (xf - x0)
 
-# --- BAGIAN 2: PROGRAM UTAMA ---
-def main():
-    print("Estimation Error Linear")
-    print("Membutuhkan 3 titik: Awal, Akhir, dan Tambahan (untuk cek kurva).")
-    print("-" * 65)
+# =========================================================================
+# 3. PERHITUNGAN ESTIMASI ERROR (MENGGUNAKAN KOEFISIEN b2)
+# =========================================================================
+# Kita butuh b2 dari 3 titik: (x0, y0), (xm, ym), (x1, y1)
 
-    try:
-        # --- INPUT USER ---
-        print("1. Masukkan Titik Awal (x0):")
-        x0 = float(input("   x0: "))
-        y0 = float(input("   f(x0): "))
+# 1. Hitung First Divided Difference (Slope tingkat 1)
+# Slope 0 ke m
+slope_0_m = (ym - y0) / (xm - x0)
+# Slope m ke 1
+slope_m_1 = (y1 - ym) / (x1 - xm)
 
-        print("\n2. Masukkan Titik Akhir Linear (x1):")
-        x1 = float(input("   x1: "))
-        y1 = float(input("   f(x1): "))
+# 2. Hitung Second Divided Difference (b2)
+# Note: Pembaginya adalah ujung ke ujung (x1 - x0)
+b2 = (slope_m_1 - slope_0_m) / (x1 - x0)
 
-        print("\n3. Masukkan Titik Tambahan/Tengah (x_extra):")
-        print("   (Diperlukan untuk menghitung kelengkungan/b2)")
-        xm = float(input("   x_extra: "))
-        ym = float(input("   f(x_extra): "))
-        
-        print("\n4. Titik yang dicari:")
-        xf = float(input("   Cari error untuk x = "))
+# 3. Hitung Estimasi Error
+# Rumus: Error = b2 * (xf - x0) * (xf - x1)
+estimated_error = b2 * (xf - x0) * (xf - x1)
 
-        # --- PROSES HITUNG ---
-        p0 = (x0, y0)
-        p1 = (x1, y1)
-        pe = (xm, ym)
-        
-        res = hitung_estimasi_error(p0, p1, pe, xf)
-        
-        # Hitung Persentase (Sesuai gambar: Value * 100)
-        error_percent = res['error_val'] * 100
+# Hitung Persentase Error (relatif terhadap hasil linear, atau value absolut)
+# Sesuai output Excel/David, ini sepertinya hanya estimated_error * 100
+error_percent = estimated_error * 100
 
-        # --- OUTPUT HASIL ---
-        print("\n" + "="*65)
-        print("Hasil Perhitungan")
-        print("-" * 65)
-        
-        # 1. Hasil Linear
-        print(f"Hasil Interpolasi Linear (f1) : {res['linear_result']:.5f}")
-        print("-" * 65)
+# =========================================================================
+# 4. OUTPUT STEP-BY-STEP & TABEL (FORMAT RAPI)
+# =========================================================================
+print("=" * 80)
+print("         ESTIMASI ERROR INTERPOLASI LINEAR (METODE TITIK TAMBAHAN)")
+print("=" * 80)
+print(f"Titik Linear : ({x0}, {y0}) sampai ({x1}, {y1})")
+print(f"Titik Extra  : ({xm}, {ym})")
+print(f"Mencari x    : {xf}")
+print("-" * 80)
 
-        # 2. Tabel Kelengkungan (b2)
-        print("Data Koefisien Error (b2):")
-        print(f"{'xi':<8} | {'f(xi)':<10} | {'First':<10} | {'Second (b2)':<10}")
-        print("-" * 50)
-        print(f"{x0:<8.2f} | {y0:<10.6f} | {res['slope_0_m']:<10.6f} | {res['b2']:<10.6f}")
-        print(f"{xm:<8.2f} | {ym:<10.6f} | {res['slope_m_1']:<10.6f} | -")
-        print(f"{x1:<8.2f} | {y1:<10.6f} | -          | -")
-        
-        print("-" * 65)
-        
-        # 3. Langkah Perhitungan Error
-        print("Rumus Estimasi Error:")
-        print("Error = b2 * (xf - x0) * (xf - x1)")
-        print(f"Error = {res['b2']:.5f} * ({xf} - {x0}) * ({xf} - {x1})")
-        
-        print("\n" + "="*65)
-        print(f"Total Estimated Error      = {res['error_val']:.5f}")
-        print(f"Presentase Estimated Error = {error_percent:.4f} %")
-        print("="*65)
+print("\n## 1. HASIL INTERPOLASI LINEAR")
+print(f"Slope (b1) = ({y1} - {y0}) / ({x1} - {x0}) = {b1_linear:.7f}")
+print(f"f1({xf})     = {y0} + {b1_linear:.7f} * ({xf} - {x0})")
+print(f"           = {f1:.7f}")
 
-    except ValueError:
-        print("\nError: Masukkan angka yang valid.")
+print("\n## 2. TABEL KOEFISIEN ERROR (b2)")
+print("Menghitung kelengkungan menggunakan titik ekstra (xm).")
+print("-" * 80)
 
-if __name__ == "__main__":
-    main()
+# Membuat DataFrame untuk tampilan Tabel Divided Difference
+# Urutan data untuk perhitungan b2: x0 -> xm -> x1
+data_table = {
+    'xi': [x0, xm, x1],
+    'f(xi)': [y0, ym, y1],
+    'First DD': [f"{slope_0_m:.7f}", f"{slope_m_1:.7f}", "-"],
+    'Second DD (b2)': [f"{b2:.7f}", "-", "-"]
+}
+df = pd.DataFrame(data_table)
+print(df.to_string(index=False))
+print("-" * 80)
+
+print("\n## 3. HASIL ESTIMASI ERROR")
+print("Rumus: Error = b2 * (xf - x0) * (xf - x1)")
+print(f"Error = {b2:.7f} * ({xf} - {x0}) * ({xf} - {x1})")
+print(f"      = {b2:.7f} * ({xf - x0}) * ({xf - x1})")
+print(f"      = {estimated_error:.7f}")
+
+print("\n## 4. PERSENTASE ERROR")
+print(f"Error % = {estimated_error:.7f} * 100")
+print(f"        = {error_percent:.7f} %")
+
+print("=" * 80)

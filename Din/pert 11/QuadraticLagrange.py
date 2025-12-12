@@ -1,123 +1,105 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Fungsi Perhitungan ---
-def hitung_lagrange_quadratic_split(points, x_find):
-    """
-    Menghitung Interpolasi Lagrange Orde 2 dengan memecah koefisien.
-    """
-    x0, y0 = points[0]
-    x1, y1 = points[1]
-    x2, y2 = points[2]
+# =========================================================================
+# 1. INPUT DATA (SESUAI FILE EXCEL Pertemuan 11 - Quadratic Lagrange)
+# =========================================================================
+# 3 Titik Data (x, y)
+x = np.array([1.0, 4.0, 6.0])      # x0, x1, x2
+y = np.array([0.0, 1.386294, 1.791759]) # y0, y1, y2
 
-    # Cek pembagian nol
-    if (x0 == x1) or (x0 == x2) or (x1 == x2):
-        return None, "Error: Nilai x tidak boleh ada yang sama."
+# Titik yang dicari (xf)
+xf = 2.0
 
-    # --- BARIS 0 (i=0) ---
-    # L0 = [(x - x1)/(x0 - x1)] * [(x - x2)/(x0 - x2)]
-    c0_1 = (x_find - x1) / (x0 - x1)  # Coeff 1
-    c0_2 = (x_find - x2) / (x0 - x2)  # Coeff 2
-    term0 = c0_1 * c0_2 * y0
+# =========================================================================
+# 2. PERHITUNGAN LAGRANGE KUADRATIK (MANUAL STEP-BY-STEP)
+# =========================================================================
 
-    # --- BARIS 1 (i=1) ---
-    # L1 = [(x - x0)/(x1 - x0)] * [(x - x2)/(x1 - x2)]
-    c1_1 = (x_find - x0) / (x1 - x0)  # Coeff 1
-    c1_2 = (x_find - x2) / (x1 - x2)  # Coeff 2
-    term1 = c1_1 * c1_2 * y1
+# --- Hitung L0 ---
+# Pembilang: (x - x1)(x - x2)
+# Penyebut : (x0 - x1)(x0 - x2)
+num0 = (xf - x[1]) * (xf - x[2])
+den0 = (x[0] - x[1]) * (x[0] - x[2])
+L0 = num0 / den0
 
-    # --- BARIS 2 (i=2) ---
-    # L2 = [(x - x0)/(x2 - x0)] * [(x - x1)/(x2 - x1)]
-    c2_1 = (x_find - x0) / (x2 - x0)  # Coeff 1
-    c2_2 = (x_find - x1) / (x2 - x1)  # Coeff 2
-    term2 = c2_1 * c2_2 * y2
+# --- Hitung L1 ---
+# Pembilang: (x - x0)(x - x2)
+# Penyebut : (x1 - x0)(x1 - x2)
+num1 = (xf - x[0]) * (xf - x[2])
+den1 = (x[1] - x[0]) * (x[1] - x[2])
+L1 = num1 / den1
 
-    # Total Hasil
-    hasil_fx = term0 + term1 + term2
+# --- Hitung L2 ---
+# Pembilang: (x - x0)(x - x1)
+# Penyebut : (x2 - x0)(x2 - x1)
+num2 = (xf - x[0]) * (xf - x[1])
+den2 = (x[2] - x[0]) * (x[2] - x[1])
+L2 = num2 / den2
 
-    # Simpan semua detail untuk tabel
-    result_data = {
-        'hasil': hasil_fx,
-        'coeff_1': [c0_1, c1_1, c2_1],
-        'coeff_2': [c0_2, c1_2, c2_2],
-        'points': points
-    }
-    
-    return result_data, None
+# --- Hitung Nilai Akhir ---
+# f2(x) = L0*y0 + L1*y1 + L2*y2
+val0 = L0 * y[0]
+val1 = L1 * y[1]
+val2 = L2 * y[2]
 
-# --- BAGIAN 2: PROGRAM UTAMA ---
-def main():
-    print("\n=== PROGRAM INTERPOLASI LAGRANGE (KUADRATIK) ===")
-    print("Menampilkan Coeff 1 dan Coeff 2 secara terpisah.")
-    print("-" * 75)
+fx = val0 + val1 + val2
 
-    try:
-        points = []
-        # --- INPUT USER ---
-        print("Masukkan Titik ke-0:")
-        x0 = float(input("   x0: "))
-        y0 = float(input("   f(x0): "))
-        points.append((x0, y0))
+# =========================================================================
+# 3. OUTPUT STEP-BY-STEP & TABEL
+# =========================================================================
+print("=" * 85)
+print("           INTERPOLASI LAGRANGE KUADRATIK (ORDE 2)")
+print("=" * 85)
+print(f"Titik 0 : ({x[0]}, {y[0]})")
+print(f"Titik 1 : ({x[1]}, {y[1]})")
+print(f"Titik 2 : ({x[2]}, {y[2]})")
+print(f"Mencari x : {xf}")
+print("-" * 85)
 
-        print("\nMasukkan Titik ke-1:")
-        x1 = float(input("   x1: "))
-        y1 = float(input("   f(x1): "))
-        points.append((x1, y1))
+print("\n## 1. PERHITUNGAN BOBOT LAGRANGE (L)")
 
-        print("\nMasukkan Titik ke-2:")
-        x2 = float(input("   x2: "))
-        y2 = float(input("   f(x2): "))
-        points.append((x2, y2))
+print(f"\n[L0] (Abaikan x0 di atas):")
+print(f"L0 = (({xf} - {x[1]}) * ({xf} - {x[2]})) / (({x[0]} - {x[1]}) * ({x[0]} - {x[2]}))")
+print(f"   = ({xf - x[1]} * {xf - x[2]}) / ({x[0] - x[1]} * {x[0] - x[2]})")
+print(f"   = {num0} / {den0}")
+print(f"   = {L0:.8f}")
 
-        print("\nTitik yang dicari:")
-        xf = float(input("   Cari f(x) untuk x = "))
+print(f"\n[L1] (Abaikan x1 di atas):")
+print(f"L1 = (({xf} - {x[0]}) * ({xf} - {x[2]})) / (({x[1]} - {x[0]}) * ({x[1]} - {x[2]}))")
+print(f"   = ({xf - x[0]} * {xf - x[2]}) / ({x[1] - x[0]} * {x[1] - x[2]})")
+print(f"   = {num1} / {den1}")
+print(f"   = {L1:.8f}")
 
-        # --- PROSES HITUNG ---
-        data, msg = hitung_lagrange_quadratic_split(points, xf)
+print(f"\n[L2] (Abaikan x2 di atas):")
+print(f"L2 = (({xf} - {x[0]}) * ({xf} - {x[1]})) / (({x[2]} - {x[0]}) * ({x[2]} - {x[1]}))")
+print(f"   = ({xf - x[0]} * {xf - x[1]}) / ({x[2] - x[0]} * {x[2] - x[1]})")
+print(f"   = {num2} / {den2}")
+print(f"   = {L2:.8f}")
 
-        if data is None:
-            print(f"\n[GAGAL] {msg}")
-            return
+print("-" * 85)
+# Validasi Sigma L = 1
+sum_L = L0 + L1 + L2
+print(f"CHECK: Total Bobot L0 + L1 + L2 = {sum_L:.8f} (Harus 1.0)")
+if abs(sum_L - 1.0) > 1e-9:
+    print("WARNING: Jumlah bobot tidak sama dengan 1. Cek perhitungan!")
+else:
+    print("STATUS: OK (Valid)")
 
-        # --- OUTPUT TABEL ---
-        print("\n" + "="*75)
-        # Header Tabel
-        print(f"{'i':<4} | {'xi':<8} | {'f(xi)':<10} | {'Coeff 1':<10} | {'Coeff 2':<10}")
-        print("-" * 75)
-        
-        c1_list = data['coeff_1']
-        c2_list = data['coeff_2']
-        pts = data['points']
-        
-        for i in range(3):
-            xi, yi = pts[i]
-            val_c1 = c1_list[i]
-            val_c2 = c2_list[i]
-            
-            # Format angka agar rapi
-            print(f"{i:<4} | {xi:<8.1f} | {yi:<10.6f} | {val_c1:<10.6f} | {val_c2:<10.5f}")
-            
-        print("-" * 75)
+print("\n## 2. TABEL HASIL")
+print("-" * 85)
+data = {
+    'i': [0, 1, 2],
+    'xi': x,
+    'f(xi)': y,
+    'Coeff (Li)': [L0, L1, L2],
+    'Li * f(xi)': [val0, val1, val2]
+}
+df = pd.DataFrame(data)
+print(df.to_string(index=False))
+print("-" * 85)
 
-        # --- OUTPUT LANGKAH PERHITUNGAN ---
-        print("LANGKAH PERHITUNGAN FORMULA:")
-        print("f(x) = (c1*c2 * f0) + (c1*c2 * f1) + (c1*c2 * f2)")
-        print("-" * 75)
-        
-        # Mengambil nilai untuk ditampilkan dalam rumus panjang
-        y0, y1, y2 = pts[0][1], pts[1][1], pts[2][1]
-        
-        # Baris Substitusi (Panjang)
-        # Format: C1 * C2 * f(x)
-        print(f"f({xf}) = {c1_list[0]:.4f} * {c2_list[0]:.4f} * {y0}  +")
-        print(f"         {c1_list[1]:.4f} * {c2_list[1]:.4f} * {y1}  +")
-        print(f"         {c1_list[2]:.4f} * {c2_list[2]:.4f} * {y2}")
-
-        print("\n" + "="*75)
-        print(f"HASIL AKHIR f({xf}) = {data['hasil']:.4f}")
-        print("="*75)
-
-    except ValueError:
-        print("\nError: Pastikan Anda memasukkan angka yang valid.")
-
-if __name__ == "__main__":
-    main()
+print("\n## 3. HASIL AKHIR")
+print(f"f2({xf}) = Σ (Li * f(xi))")
+print(f"       = {val0:.6f} + {val1:.6f} + {val2:.6f}")
+print(f"       = {fx:.6f}")
+print("=" * 85)

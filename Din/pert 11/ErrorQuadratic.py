@@ -1,140 +1,106 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Fungsi Perhitungan ---
-def hitung_tabel_diff(points):
-    """
-    Menghitung tabel divided difference untuk N titik.
-    points: list of tuples [(x, y), ...]
-    Mengembalikan tabel lengkap (matriks).
-    """
-    n = len(points)
-    # Buat matriks n x n
-    tabel = [[0] * n for _ in range(n)]
-    
-    # Isi kolom 0 dengan nilai f(x) / y
+# =========================================================================
+# 1. INPUT DATA (SESUAI FILE EXCEL Pertemuan 11 - Error Quadratic)
+# =========================================================================
+# 3 Titik Utama untuk Interpolasi Kuadratik (x0, x1, x2)
+base_points = [
+    (1.0, 0.0),        # x0, f(x0)
+    (4.0, 1.386294),   # x1, f(x1)
+    (6.0, 1.791759)    # x2, f(x2)
+]
+
+# 1 Titik Tambahan untuk Estimasi Error (xm / extra)
+# Dari Excel baris 9: "x  5  1.609438"
+extra_point = (5.0, 1.609438)
+
+# Titik yang dicari (xf)
+xf = 2.0
+
+# =========================================================================
+# 2. LOGIKA UTAMA: NEWTON DIVIDED DIFFERENCE (Mencari b3)
+# =========================================================================
+# Gabungkan semua titik dan urutkan berdasarkan x agar tabel rapi
+# Urutan di Excel: 1, 4, 5, 6
+all_points = base_points + [extra_point]
+all_points.sort(key=lambda p: p[0]) 
+
+n = len(all_points)
+x = np.array([p[0] for p in all_points])
+y = np.array([p[1] for p in all_points])
+
+# Buat Tabel Divided Difference
+table = np.zeros((n, n))
+table[:, 0] = y
+
+# Isi Tabel
+for j in range(1, n):
+    for i in range(n - j):
+        numerator = table[i + 1, j - 1] - table[i, j - 1]
+        denominator = x[i + j] - x[i]
+        table[i, j] = numerator / denominator
+
+# Ambil b3 (Third Difference) dari baris paling atas (index 0, kolom 3)
+b3 = table[0, 3]
+
+# =========================================================================
+# 3. PERHITUNGAN ERROR
+# =========================================================================
+# Rumus Error Kuadratik: Error = b3 * (xf - x0) * (xf - x1) * (xf - x2)
+# Gunakan x0, x1, x2 dari titik base_points ASLI (bukan yang sudah disortir)
+# Tapi biasanya x0, x1, x2 adalah 3 titik pertama yang berurutan.
+x0_orig = base_points[0][0]
+x1_orig = base_points[1][0]
+x2_orig = base_points[2][0]
+
+term1 = xf - x0_orig
+term2 = xf - x1_orig
+term3 = xf - x2_orig
+
+error_val = b3 * term1 * term2 * term3
+error_percent = error_val * 100
+
+# =========================================================================
+# 4. OUTPUT STEP-BY-STEP & TABEL
+# =========================================================================
+print("=" * 85)
+print("         ESTIMASI ERROR INTERPOLASI KUADRATIK (METODE TITIK TAMBAHAN)")
+print("=" * 85)
+print(f"3 Titik Utama : {base_points}")
+print(f"Titik Extra   : {extra_point}")
+print(f"Mencari x     : {xf}")
+print("-" * 85)
+
+print("\n## 1. TABEL DIVIDED DIFFERENCE (Termasuk Titik Extra)")
+print("Tabel ini digunakan untuk mencari b3 (Third Difference).")
+print("-" * 85)
+
+# Tampilkan Tabel menggunakan Pandas
+col_names = ['f(xi)', 'First', 'Second', 'Third (b3)']
+df_table = pd.DataFrame(table, columns=col_names)
+df_table.insert(0, 'xi', x)
+df_table.insert(0, 'i', range(n))
+
+# Bersihkan tampilan (hapus nilai 0 di segitiga bawah)
+df_clean = df_table.astype(object)
+for j in range(1, n+1): 
     for i in range(n):
-        tabel[i][0] = points[i][1]
-        
-    # Hitung kolom selanjutnya (First, Second, Third...)
-    for j in range(1, n):
-        for i in range(n - j):
-            numerator = tabel[i+1][j-1] - tabel[i][j-1]
-            denominator = points[i+j][0] - points[i][0]
-            tabel[i][j] = numerator / denominator
-            
-    return tabel
+        if i > (n - j): 
+            df_clean.iloc[i, j+1] = "" # +1 karena ada kolom 'i'
 
-def hitung_error_kuadratik(base_points, extra_point, x_find):
-    """
-    base_points : 3 titik utama [(x0,y0), (x1,y1), (x2,y2)]
-    extra_point : 1 titik tambahan (x3, y3)
-    """
-    # 1. Gabungkan semua titik untuk membuat Tabel Difference
-    # Sesuai gambar, titik-titik diurutkan berdasarkan nilai x (1, 4, 5, 6)
-    all_points = base_points + [extra_point]
-    all_points.sort(key=lambda p: p[0]) # Urutkan agar tabel rapi seperti gambar
-    
-    # 2. Hitung Tabel untuk mendapatkan b3 (Third Difference)
-    tabel = hitung_tabel_diff(all_points)
-    
-    # Ambil koefisien b3 (First element of the 4th column/index 3)
-    # Pada tabel Newton diagonal atas, ini adalah coef[0][3]
-    b3 = tabel[0][3]
-    
-    # 3. Hitung Nilai Error
-    # Rumus: b3 * (x - x0) * (x - x1) * (x - x2)
-    # x0, x1, x2 diambil dari base_points (titik pembentuk kuadratik)
-    x0 = base_points[0][0]
-    x1 = base_points[1][0]
-    x2 = base_points[2][0]
-    
-    term1 = x_find - x0
-    term2 = x_find - x1
-    term3 = x_find - x2
-    
-    error_val = b3 * term1 * term2 * term3
-    
-    return {
-        'b3': b3,
-        'error_val': error_val,
-        'tabel': tabel,
-        'all_points': all_points,
-        'terms': (term1, term2, term3)
-    }
+print(df_clean.to_string(index=False))
+print("-" * 85)
 
-# --- BAGIAN 2: PROGRAM UTAMA ---
-def main():
-    print("Error Estimation Quadratic")
-    print("Membutuhkan 3 titik utama + 1 titik tambahan.")
-    print("-" * 60)
+print("\n## 2. HASIL ESTIMASI ERROR")
+print(f"Koefisien b3 (dari tabel baris 0, kolom Third) = {b3:.8f}")
+print("\nRumus: Error = b3 * (xf - x0) * (xf - x1) * (xf - x2)")
+print(f"Error = {b3:.8f} * ({xf} - {x0_orig}) * ({xf} - {x1_orig}) * ({xf} - {x2_orig})")
+print(f"      = {b3:.8f} * ({term1}) * ({term2}) * ({term3})")
+print(f"      = {error_val:.8f}")
 
-    try:
-        base_points = []
-        # --- INPUT USER ---
-        print("Masukkan 3 Titik Utama (Untuk Interpolasi)")
-        for i in range(3):
-            xi = float(input(f"   x{i}: "))
-            yi = float(input(f"   f(x{i}): "))
-            base_points.append((xi, yi))
-            
-        print("\nMasukkan 1 Titik Tambahan (Untuk Cek Error)")
-        xe = float(input("   x_extra: "))
-        ye = float(input("   f(x_extra): "))
-        extra_point = (xe, ye)
-        
-        print("\nTitik yang dicari")
-        xf = float(input("   Cari error untuk x = "))
+print("\n## 3. PERSENTASE ERROR")
+print(f"Error % = {error_val:.8f} * 100")
+print(f"        = {error_percent:.7f} %")
 
-        # --- PROSES HITUNG ---
-        res = hitung_error_kuadratik(base_points, extra_point, xf)
-        
-        # Hitung Persen (Nilai error * 100)
-        persen = res['error_val'] * 100
-
-        # --- OUTPUT TABEL ---
-        print("\n" + "="*75)
-        print("Tabel Perbedaan (Termasuk Titik Extra):")
-        print(f"{'i':<3} | {'xi':<8} | {'f(xi)':<10} | {'First':<10} | {'Second':<10} | {'Third (b3)':<10}")
-        print("-" * 75)
-        
-        # Menampilkan tabel
-        pts = res['all_points']
-        tbl = res['tabel']
-        n = len(pts)
-        
-        for i in range(n):
-            row_str = f"{i:<3} | {pts[i][0]:<8.4f} | {pts[i][1]:<10.5f}"
-            
-            # Loop kolom difference
-            for j in range(1, n - i):
-                val = tbl[i][j]
-                row_str += f" | {val:<10.5f}"
-            
-            print(row_str)
-
-        # --- OUTPUT PERHITUNGAN ERROR ---
-        print("\n" + "="*75)
-        print("Langkah Perhitungan Error:")
-        print(f"Koefisien b3 (Third Diff) = {res['b3']:.6f}")
-        print("-" * 75)
-        
-        # Menampilkan Rumus Substitusi (Mirip Gambar)
-        t1, t2, t3 = res['terms']
-        x0 = base_points[0][0]
-        x1 = base_points[1][0]
-        x2 = base_points[2][0]
-
-        print("Rumus: Error = b3 * (xf - x0) * (xf - x1) * (xf - x2)")
-        print(f"Error = {res['b3']:.5f} * ({xf} - {x0}) * ({xf} - {x1}) * ({xf} - {x2})")
-        print(f"Error = {res['b3']:.5f} * {t1} * {t2} * {t3}")
-        
-        print("-" * 75)
-        print(f"Total Estimated Error       = {res['error_val']:.5f}")
-        print(f"Presentase Estimated Error  = {persen:.4f} %")
-        print("="*75)
-
-    except ValueError:
-        print("\nError: Pastikan Anda memasukkan angka yang valid.")
-
-if __name__ == "__main__":
-    main()
+print("=" * 85)

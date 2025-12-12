@@ -1,83 +1,65 @@
-import sys
+import numpy as np
 
-# --- BAGIAN 1: Fungsi Perhitungan ---
-def hitung_b1(x0, y0, x1, y1):
-    """
-    Menghitung kemiringan (slope) atau b1.
-    Rumus: (y1 - y0) / (x1 - x0)
-    """
-    if (x1 - x0) == 0:
-        return None  # Menghindari pembagian dengan nol
-    return (y1 - y0) / (x1 - x0)
+# =========================================================================
+# 1. INPUT DATA (GANTI BAGIAN INI SESUAI SOAL)
+# =========================================================================
+# Contoh Data: Kita punya dua titik (x0, y0) dan (x1, y1)
+# Misal: Mencari nilai log(2) pakai data log(1) dan log(6) (hanya contoh)
+x0 = 1.0
+y0 = 0.0
 
-def interpolasi_linear(x0, y0, x1, y1, x_find):
-    """
-    Menghitung nilai f(x_find) menggunakan rumus interpolasi linear.
-    """
-    # 1. Hitung Gradien (b1)
-    b1 = hitung_b1(x0, y0, x1, y1)
-    
-    if b1 is None:
-        return None, None, "Error: Nilai x0 dan x1 tidak boleh sama."
-    
-    # 2. Hitung hasil interpolasi
-    # Rumus: f(x) = f(x0) + b1 * (x - x0)
-    term_koreksi = b1 * (x_find - x0)
-    hasil_y = y0 + term_koreksi
-    
-    return hasil_y, b1, term_koreksi
+x1 = 6.0
+y1 = 1.791759
 
-# --- BAGIAN 2: PROGRAM UTAMA (INPUT USER) ---
-def main():
-    print("Interpolasi Linear")
-    print("Mencari nilai f(x) di antara dua titik.")
-    print("-" * 45)
+# Titik x yang ingin dicari nilai y-nya
+x_ask = 2.0 
 
-    try:
-        # --- INPUT USER ---
-        print("Masukkan Titik Pertama (i=0):")
-        x0 = float(input("   x0: "))
-        y0 = float(input("   f(x0): "))
-        
-        print("\nMasukkan Titik Kedua (i=1):")
-        x1 = float(input("   x1: "))
-        y1 = float(input("   f(x1): "))
-        
-        print("\nTitik yang dicari:")
-        xf = float(input("   Cari f(x) untuk x = "))
+# =========================================================================
+# 2. PERHITUNGAN (RUMUS NEWTON ORDE 1)
+# Rumus: y = y0 + (y1 - y0)/(x1 - x0) * (x - x0)
+# =========================================================================
 
-        # --- PROSES HITUNG ---
-        hasil, b1, koreksi = interpolasi_linear(x0, y0, x1, y1, xf)
+# Langkah 1: Hitung Gradient / Slope (b1) / Divided Difference pertama
+# b1 = (y1 - y0) / (x1 - x0)
+pembilang = y1 - y0
+penyebut  = x1 - x0
 
-        if hasil is None:
-            print(f"\n[GAGAL] {koreksi}")
-            return
+if penyebut == 0:
+    print("Error: x0 dan x1 tidak boleh sama (pembagian dengan nol).")
+    exit()
 
-        # --- OUTPUT TABEL DATA (Mirip Kiri Gambar) ---
-        print("\n" + "="*45)
-        print("Data yg diketahui:")
-        print(f"{'i':<5} | {'xi':<10} | {'f(xi)':<10}")
-        print("-" * 30)
-        print(f"{'0':<5} | {x0:<10.4f} | {y0:<10.5f}")
-        print(f"{'1':<5} | {x1:<10.4f} | {y1:<10.5f}")
-        
-        # --- OUTPUT HASIL PERHITUNGAN (Mirip Kanan Gambar) ---
-        print("\n" + "="*45)
-        print("Langkah Perhitungan:")
-        print(f"1. Slope (b1) / First : {b1:.5f}")
-        print(f"2. Rumus: f(x) = f(x0) + b1 * (xf - x0)")
-        
-        # Menampilkan substitusi angka agar mirip gambar
-        # Contoh: f(xi) = 0 + 0.3584 * 1
-        print(f"          f({xf}) = {y0} + {b1:.4f} * ({xf} - {x0})")
-        print(f"          f({xf}) = {y0} + {b1:.4f} * {xf - x0}")
-        
-        print("-" * 45)
-        print(f"Hasil Akhir f({xf}) = {hasil:.5f}")
-        print("="*45)
+b1 = pembilang / penyebut
 
-    except ValueError:
-        print("\nError: Masukkan angka yang valid.")
+# Langkah 2: Hitung Hasil Interpolasi
+# y_ask = y0 + b1 * (x_ask - x0)
+y_ask = y0 + b1 * (x_ask - x0)
 
-if __name__ == "__main__":
-    main()
+# =========================================================================
+# 3. OUTPUT STEP-BY-STEP (UNTUK BELAJAR/UJIAN)
+# =========================================================================
+print("=" * 60)
+print("              HASIL INTERPOLASI LINEAR")
+print("=" * 60)
+
+print("Diketahui Titik Data:")
+print(f"Titik 0: (x0={x0}, y0={y0})")
+print(f"Titik 1: (x1={x1}, y1={y1})")
+print(f"Ditanya: Nilai y saat x = {x_ask}")
+print("-" * 60)
+
+print("\nLANGKAH 1: Hitung Kemiringan (Slope / b1)")
+print("Rumus b1 = (y1 - y0) / (x1 - x0)")
+print(f"b1 = ({y1} - {y0}) / ({x1} - {x0})")
+print(f"b1 = {pembilang:.6f} / {penyebut:.6f}")
+print(f"b1 = {b1:.7f}")
+
+print("\nLANGKAH 2: Masukkan ke Persamaan Linear")
+print("Rumus: y = y0 + b1 * (x - x0)")
+print(f"y = {y0} + {b1:.7f} * ({x_ask} - {x0})")
+print(f"y = {y0} + {b1:.7f} * ({x_ask - x0})")
+print(f"y = {y0} + {b1 * (x_ask - x0):.7f}")
+print(f"y = {y_ask:.7f}")
+
+print("-" * 60)
+print(f"HASIL AKHIR: y({x_ask}) ≈ {y_ask:.7f}")
+print("-" * 60)

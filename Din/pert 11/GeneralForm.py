@@ -1,122 +1,111 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Fungsi Perhitungan ---
-def divided_difference_table(x_points, y_points):
-    """
-    Menghitung tabel Divided Difference untuk n titik.
-    Mengembalikan matriks koefisien (tabel).
-    """
-    n = len(x_points)
-    # Membuat matriks n x n diisi nol
-    coef = [[0] * n for _ in range(n)]
+# Atur tampilan agar rapi
+np.set_printoptions(precision=6, suppress=True)
+pd.set_option('display.float_format', lambda x: '%.6f' % x)
+
+# =========================================================================
+# 1. INPUT DATA (GANTI BAGIAN INI SESUAI FILE EXCEL ANDA)
+# =========================================================================
+# Contoh Data (Misalnya ada 4 atau 5 titik)
+# Masukkan data berurutan dari x0, x1, x2, dst.
+x = np.array([1.0, 4.0, 6.0, 5.0])    # Data x
+y = np.array([0.0, 1.386294, 1.791759, 1.609438]) # Data y atau f(x)
+
+# Titik yang ingin dicari nilainya
+x_ask = 2.0
+
+# =========================================================================
+# 2. ALGORITMA UTAMA: MEMBUAT TABEL DIVIDED DIFFERENCE
+# =========================================================================
+n = len(x)
+# Buat matriks kosong ukuran n x n
+# Kolom ke-0 diisi nilai y (f(x))
+table = np.zeros((n, n))
+table[:, 0] = y
+
+# Proses Loop untuk mengisi kolom ke-1 sampai ke-(n-1)
+# Rumus: (Nilai Bawah - Nilai Atas) / (x_Bawah - x_Atas)
+for j in range(1, n):
+    for i in range(n - j):
+        # i = baris, j = kolom
+        # Pembilang: Selisih nilai di kolom sebelumnya (j-1)
+        numerator = table[i + 1, j - 1] - table[i, j - 1]
+        
+        # Penyebut: Selisih x. Perhatikan jaraknya semakin lebar seiring kolom bertambah
+        denominator = x[i + j] - x[i]
+        
+        table[i, j] = numerator / denominator
+
+# Koefisien b (b0, b1, b2...) adalah baris pertama (indeks 0) dari setiap kolom
+b_coeffs = table[0, :]
+
+# =========================================================================
+# 3. PERHITUNGAN NILAI PREDIKSI (INTERPOLASI)
+# =========================================================================
+# Rumus: y = b0 + b1(x-x0) + b2(x-x0)(x-x1) + ...
+y_ask = b_coeffs[0] # Inisialisasi dengan b0
+x_term = 1.0
+
+detailed_terms = [] # Untuk menyimpan nilai per suku (agar bisa dicek step-by-step)
+detailed_terms.append(b_coeffs[0])
+
+for k in range(1, n):
+    # Update suku perkalian (x - x0)(x - x1)...
+    x_term = x_term * (x_ask - x[k-1])
     
-    # Kolom pertama adalah nilai y (f(x))
+    # Hitung nilai suku ke-k: bk * (x - ...)...
+    term_val = b_coeffs[k] * x_term
+    y_ask += term_val
+    
+    detailed_terms.append(term_val)
+
+# =========================================================================
+# 4. OUTPUT STEP-BY-STEP (FORMAT TABEL LENGKAP)
+# =========================================================================
+print("=" * 80)
+print(f"       HASIL INTERPOLASI BENTUK UMUM (ORDE {n-1})")
+print("=" * 80)
+print(f"Jumlah Titik Data: {n}")
+print(f"Mencari nilai y saat x = {x_ask}")
+print("-" * 80)
+
+print("\n## LANGKAH 1: Tabel Divided Difference (Selisih Terbagi)")
+print("Kolom 0 adalah y. Kolom 1 adalah 1st DD, Kolom 2 adalah 2nd DD, dst.")
+print("-" * 80)
+
+# Membuat DataFrame Pandas untuk tampilan cantik
+col_names = ['f(xi)'] + [f'{k}th DD' for k in range(1, n)]
+df_table = pd.DataFrame(table, columns=col_names)
+# Tambahkan kolom x di depan agar jelas
+df_table.insert(0, 'xi', x)
+
+# Trik: Ubah nilai 0.00000 di segitiga bawah menjadi kosong string agar bersih
+df_clean = df_table.astype(object)
+for j in range(1, n+1): # Kolom 1 sampai n (kolom DD)
     for i in range(n):
-        coef[i][0] = y_points[i]
-    
-    # Menghitung kolom-kolom berikutnya (First, Second, Third, dst)
-    for j in range(1, n):
-        for i in range(n - j):
-            # Rumus: (Next_Val - Curr_Val) / (x_jauh - x_dekat)
-            numerator = coef[i+1][j-1] - coef[i][j-1]
-            denominator = x_points[i+j] - x_points[i]
-            coef[i][j] = numerator / denominator
-            
-    return coef
+        if i > (n - j): # Logika segitiga bawah
+            df_clean.iloc[i, j] = ""
 
-def newton_general_interpolation(x_points, y_points, x_find):
-    """
-    Menghitung nilai prediksi f(x) menggunakan koefisien diagonal tabel.
-    """
-    coef_table = divided_difference_table(x_points, y_points)
-    n = len(x_points)
-    
-    # Ambil koefisien b0, b1, b2... (elemen diagonal atas: coef[0][0], coef[0][1]...)
-    b = [coef_table[0][i] for i in range(n)]
-    
-    # Hitung nilai polinomial
-    # Mulai dengan b0
-    result = b[0]
-    
-    # Loop untuk menambah suku-suku berikutnya
-    # term menyimpan nilai perkalian (x - x0)*(x - x1)...
-    term_product = 1.0
-    
-    steps = [] # Untuk menyimpan detail langkah perhitungan
-    steps.append(f"b0 = {b[0]}")
-    
-    for i in range(1, n):
-        term_product *= (x_find - x_points[i-1])
-        add_val = b[i] * term_product
-        result += add_val
-        steps.append(f"Term {i} (b{i} * product): {add_val:.6f}")
-        
-    return result, coef_table, b
+print(df_clean.to_string(index=False))
+print("-" * 80)
 
-# --- BAGIAN 2: PROGRAM UTAMA ---
-def main():
-    print("General Form Interpolation")
-    print("Mendukung N titik data (Linear, Kuadratik, Kubik, dst)")
-    print("-" * 55)
+print("\n## LANGKAH 2: Ambil Koefisien b (Baris Teratas)")
+for i, b in enumerate(b_coeffs):
+    print(f"b{i} = {b:.7f}")
 
-    try:
-        x_pts = []
-        y_pts = []
-        
-        # --- INPUT USER ---
-        n_titik = int(input("Masukkan jumlah titik data yang diketahui: "))
-        
-        for i in range(n_titik):
-            print(f"\nMasukkan data titik (i={i}):")
-            xi = float(input(f"   x{i}: "))
-            yi = float(input(f"   f(x{i}): "))
-            x_pts.append(xi)
-            y_pts.append(yi)
-            
-        print("\nTitik yang dicari:")
-        x_target = float(input("   Cari f(x) untuk x = "))
+print("\n## LANGKAH 3: Hitung Polinomial Newton")
+print(f"f(x) = b0 + b1(x-x0) + b2(x-x0)(x-x1) + ...")
 
-        # --- PROSES HITUNG ---
-        hasil_akhir, tabel, koef_b = newton_general_interpolation(x_pts, y_pts, x_target)
+print("\nDetail Penjumlahan Suku:")
+eq_string = f"y = {detailed_terms[0]:.6f}"
+for i in range(1, n):
+    val = detailed_terms[i]
+    sign = "+" if val >= 0 else ""
+    print(f"Suku {i} (Order {i}) : {sign} {val:.7f}")
+    eq_string += f" {sign} {val:.7f}"
 
-        # --- OUTPUT TABEL (DINAMIS SESUAI JUMLAH TITIK) ---
-        print("\n" + "="*80)
-        print("Tabel Perbedaan:")
-        
-        # Header Tabel
-        header = f"{'i':<3} | {'xi':<8} | {'f(xi)':<10}"
-        col_names = ["First", "Second", "Third", "Fourth", "Fifth"]
-        for i in range(n_titik - 1):
-            name = col_names[i] if i < len(col_names) else f"Orde-{i+1}"
-            header += f" | {name:<12}"
-        print(header)
-        print("-" * 80)
-        
-        # Isi Tabel
-        for i in range(n_titik):
-            row_str = f"{i:<3} | {x_pts[i]:<8.3f} | {y_pts[i]:<10.6f}"
-            
-            # Print kolom difference yang valid untuk baris ini
-            for j in range(1, n_titik - i):
-                val = tabel[i][j]
-                row_str += f" | {val:<12.6f}"
-            
-            print(row_str)
-
-        # --- OUTPUT LANGKAH PERHITUNGAN ---
-        print("\n" + "="*80)
-        print("Koefisien Polinomial (b):")
-        for i, val in enumerate(koef_b):
-            print(f"b{i} = {val:.6f}")
-            
-        print("-" * 80)
-        print(f"Hasil Akhir f({x_target}) = {hasil_akhir:.5f}")
-        print("="*80)
-
-    except ValueError:
-        print("\nError: Masukkan angka yang valid.")
-    except ZeroDivisionError:
-        print("\nError: Ada nilai x yang sama, menyebabkan pembagian nol.")
-
-if __name__ == "__main__":
-    main()
+print("-" * 40 + " +")
+print(f"Hasil Akhir y({x_ask}) = {y_ask:.7f}")
+print("=" * 80)

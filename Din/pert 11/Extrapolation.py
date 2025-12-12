@@ -1,144 +1,113 @@
-import sys
+import numpy as np
+import pandas as pd
 
-# --- BAGIAN 1: Fungsi Perhitungan ---
-def hitung_tabel_newton(points):
-    """
-    Menghitung tabel Divided Difference untuk N titik.
-    points: list of tuples [(x, y), ...]
-    """
-    n = len(points)
-    # Buat matriks n x n
-    coef = [[0] * n for _ in range(n)]
+# =========================================================================
+# 1. INPUT DATA (SESUAI FILE EXCEL Pertemuan 11 - Extrapolation)
+# =========================================================================
+# Data Titik (x, y)
+# Dari Excel: 1, 1.5, 2, 2.5
+points = [
+    (1.0, 2.718),
+    (1.5, 4.481),
+    (2.0, 7.389),
+    (2.5, 12.182)
+]
+
+# Titik yang dicari (xf)
+# Dari Excel: Cari x = 3
+xf = 3.0
+
+# =========================================================================
+# 2. ALGORITMA NEWTON DIVIDED DIFFERENCE
+# =========================================================================
+n = len(points)
+x = np.array([p[0] for p in points])
+y = np.array([p[1] for p in points])
+
+# Buat Tabel Divided Difference
+table = np.zeros((n, n))
+table[:, 0] = y
+
+# Isi Tabel
+for j in range(1, n):
+    for i in range(n - j):
+        numerator = table[i + 1, j - 1] - table[i, j - 1]
+        denominator = x[i + j] - x[i]
+        table[i, j] = numerator / denominator
+
+# Ambil Koefisien b (Baris Teratas / Diagonal)
+b = table[0, :]
+
+# =========================================================================
+# 3. PERHITUNGAN NILAI PREDIKSI (SUBSTITUSI)
+# =========================================================================
+# Rumus: y = b0 + b1(x-x0) + b2(x-x0)(x-x1) + b3(x-x0)(x-x1)(x-x2)
+y_pred = b[0]
+terms = [b[0]] # Simpan nilai per suku untuk display
+
+x_term_accumulated = 1.0
+
+for i in range(1, n):
+    # Hitung (x - x0)...(x - x_i-1)
+    x_term_accumulated *= (xf - x[i-1])
     
-    # Isi kolom pertama dengan y
+    # Hitung suku ke-i: bi * akumulasi_x
+    term_val = b[i] * x_term_accumulated
+    y_pred += term_val
+    terms.append(term_val)
+
+# =========================================================================
+# 4. OUTPUT STEP-BY-STEP (FORMAT EXCEL)
+# =========================================================================
+print("=" * 85)
+print("              EKSTRAPOLASI (NEWTON POLYNOMIAL)")
+print("=" * 85)
+print(f"Data Titik  : {points}")
+print(f"Mencari x   : {xf} (Di luar rentang data -> Ekstrapolasi)")
+print("-" * 85)
+
+print("\n## 1. TABEL DIVIDED DIFFERENCE")
+print("Sama seperti Interpolasi, kita cari koefisien b dari tabel ini.")
+print("-" * 85)
+
+# Format Tabel dengan Pandas
+col_names = ['f(xi)'] + [f'{k}th DD' for k in range(1, n)]
+df_table = pd.DataFrame(table, columns=col_names)
+df_table.insert(0, 'xi', x)
+df_table.insert(0, 'i', range(n))
+
+# Bersihkan tampilan
+df_clean = df_table.astype(object)
+for j in range(1, n+1): 
     for i in range(n):
-        coef[i][0] = points[i][1]
-    
-    # Hitung kolom selanjutnya
-    for j in range(1, n):
-        for i in range(n - j):
-            # Rumus: (Next - Curr) / (x_jauh - x_dekat)
-            numerator = coef[i+1][j-1] - coef[i][j-1]
-            denominator = points[i+j][0] - points[i][0]
-            coef[i][j] = numerator / denominator
-            
-    return coef
+        if i > (n - j): df_clean.iloc[i, j+1] = ""
 
-def hitung_ekstrapolasi(points, x_find):
-    """
-    Menghitung nilai f(x) menggunakan koefisien diagonal tabel Newton.
-    """
-    n = len(points)
-    coef_table = hitung_tabel_newton(points)
-    
-    # Ambil koefisien diagonal atas (b0, b1, b2, dst)
-    b = [coef_table[0][i] for i in range(n)]
-    
-    # Hitung nilai polinomial
-    # f(x) = b0 + b1(x-x0) + b2(x-x0)(x-x1) + ...
-    
-    hasil_akhir = b[0]
-    detail_terms = [] # Untuk menyimpan nilai per suku (b0, b1*.., b2*..)
-    detail_terms.append(b[0])
-    
-    term_product = 1.0
-    for i in range(1, n):
-        term_product *= (x_find - points[i-1][0])
-        nilai_suku = b[i] * term_product
-        hasil_akhir += nilai_suku
-        detail_terms.append(nilai_suku)
-        
-    return {
-        'hasil': hasil_akhir,
-        'b': b,
-        'tabel': coef_table,
-        'terms': detail_terms
-    }, None
+print(df_clean.to_string(index=False))
+print("-" * 85)
 
-# --- BAGIAN 2: PROGRAM UTAMA ---
-def main():
-    print("Ekstrapolasi (Newton Polynomial)")
-    print("Mencari nilai f(x) di luar rentang data yang diketahui.")
-    print("-" * 55)
+print("\n## 2. HASIL PERHITUNGAN")
+print("Rumus: f(x) = b0 + b1(x-x0) + b2(x-x0)(x-x1) + b3(x-x0)(x-x1)(x-x2)")
 
-    try:
-        # --- INPUT USER ---
-        # Sesuai gambar, kita butuh input dinamis (bisa 4 titik atau lebih)
-        n = int(input("Masukkan jumlah titik data (n): "))
-        
-        points = []
-        print("\nMasukkan data titik secara berurutan:")
-        for i in range(n):
-            print(f"Titik ke-{i}:")
-            xi = float(input(f"   x{i}: "))
-            yi = float(input(f"   f(x{i}): "))
-            points.append((xi, yi))
-            
-        print("\nTitik yang dicari (Ekstrapolasi):")
-        xf = float(input("   Cari f(x) untuk x = "))
+print("\nSubstitusi Angka:")
+# String manual agar persis Excel
+line1 = f"f({xf}) = {b[0]:.4f}"
+line1 += f" + {b[1]:.4f} * ({xf}-{x[0]})"
+line1 += f" + {b[2]:.4f} * ({xf}-{x[0]}) * ({xf}-{x[1]})"
+line1 += f" + {b[3]:.4f} * ({xf}-{x[0]}) * ({xf}-{x[1]}) * ({xf}-{x[2]})"
+print(line1)
 
-        # --- PROSES HITUNG ---
-        data, msg = hitung_ekstrapolasi(points, xf)
-        
-        if data is None:
-            print(f"\n[GAGAL] {msg}")
-            return
+print("\nNilai per Suku:")
+print(f"Suku 0 (b0)                        = {terms[0]:.6f}")
+print(f"Suku 1 (b1 * (x-x0))               = {terms[1]:.6f}")
+print(f"Suku 2 (b2 * (x-x0)(x-x1))         = {terms[2]:.6f}")
+print(f"Suku 3 (b3 * (x-x0)(x-x1)(x-x2))   = {terms[3]:.6f}")
+print("-" * 40 + " +")
+print(f"Hasil Akhir f({xf})                   = {y_pred:.6f}")
 
-        # --- OUTPUT TABEL ---
-        print("\n" + "="*55)
-        print("Tabel Perbedaan:")
-        # Header dinamis
-        header = f"{'i':<3} | {'xi':<6} | {'f(xi)':<10}"
-        col_names = ["First", "Second", "Third", "Fourth", "Fifth"]
-        for i in range(n - 1):
-            c_name = col_names[i] if i < len(col_names) else f"Orde-{i+1}"
-            header += f" | {c_name:<10}"
-        print(header)
-        print("-" * 55)
-        
-        # Isi Tabel
-        tbl = data['tabel']
-        for i in range(n):
-            row_str = f"{i:<3} | {points[i][0]:<6.4g} | {points[i][1]:<10.5g}"
-            for j in range(1, n - i):
-                row_str += f" | {tbl[i][j]:<10.5g}"
-            print(row_str)
-            
-        print("-" * 55)
-
-        # --- OUTPUT LANGKAH PERHITUNGAN (Format Mirip Gambar) ---
-        print("Langkah Perhitungan:")
-        print("f(x) = b0 + b1(x-x0) + b2(x-x0)(x-x1) + b3(x-x0)(x-x1)(x-x2) ...")
-        print("-" * 55)
-        
-        b = data['b']
-        x = [p[0] for p in points]
-        
-        # Tampilkan substitusi angka
-        # f(xf) = 2.718 + 3.526 * (3-1) + ...
-        rumus_str = f"f({xf}) = {b[0]:.4g}"
-        for i in range(1, n):
-            # Tanda tambah/kurang otomatis
-            tanda = " + " if b[i] >= 0 else " - "
-            rumus_str += f"{tanda}{abs(b[i]):.4g}"
-            
-            # Tambahkan (x - xi)
-            for j in range(i):
-                rumus_str += f" * ({xf - x[j]:.4g})"
-        
-        print(rumus_str)
-        
-        # Tampilkan hasil penjumlahan per suku (agar mirip proses manual)
-        # Contoh: f(x) = 2.718 + 7.052 + 6.87 + ...
-        terms_str = f"f({xf}) = " + " + ".join([f"{t:.4g}" for t in data['terms']])
-        print(terms_str)
-        
-        print("\n" + "="*55)
-        print(f"HASIL AKHIR f({xf}) = {data['hasil']:.5g}")
-        print("="*55)
-
-    except ValueError:
-        print("\nError: Pastikan Anda memasukkan angka yang valid (gunakan titik untuk desimal).")
-
-if __name__ == "__main__":
-    main()
+# Cek dengan nilai asli e^3 (approx 20.0855)
+true_val = np.exp(3)
+err = abs((true_val - y_pred)/true_val) * 100
+print("-" * 85)
+print(f"Info: Nilai asli e^3 adalah sekitar {true_val:.4f}")
+print(f"Error Ekstrapolasi: {err:.2f}%")
+print("=" * 85)
