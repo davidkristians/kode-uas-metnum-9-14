@@ -1,0 +1,7 @@
+Diketahui:
+percepatan gravitasi: 9.81
+massa: 70 kg
+hambatan udara: 12
+
+- Mencari jarak tempuk dari detik 0 ke detik 10 dengan trapezional method untuk step size 1, step size 0.5, dan step size 0,05.
+- jelaskan mengapa terdapat perbedaan hasil.
